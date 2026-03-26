@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp, deleteField } from 'firebase/firestore'
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp, deleteField, getDoc } from 'firebase/firestore'
 import { useParams, useNavigate } from 'react-router-dom'
 import { db } from '../../lib/firebase'
 import { useAuth } from '../../hooks/useAuth'
@@ -28,6 +28,7 @@ export function ShelfView() {
   const [confirmLeave, setConfirmLeave] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [tab, setTab] = useState<Tab>('puzzles')
+  const [memberNames, setMemberNames] = useState<Record<string, string>>({})
 
   // Subscribe to puzzles
   useEffect(() => {
@@ -39,6 +40,21 @@ export function ShelfView() {
       setPuzzlesLoading(false)
     })
   }, [shelfId])
+
+  // Fetch authoritative display names from /users/{uid} for all members
+  useEffect(() => {
+    if (!shelf) return
+    const uids = Object.keys(shelf.members)
+    Promise.all(
+      uids.map(uid =>
+        getDoc(doc(db, 'users', uid)).then(snap => ({ uid, name: snap.data()?.displayName as string | undefined }))
+      )
+    ).then(results => {
+      const names: Record<string, string> = {}
+      results.forEach(({ uid, name }) => { if (name) names[uid] = name })
+      setMemberNames(names)
+    }).catch(() => {})
+  }, [shelf?.id]) // Only re-fetch when the shelf itself changes, not on every real-time update
 
   // Update presence: currentPuzzle = null when on shelf view; also refresh displayName in case it was stored incorrectly
   useEffect(() => {
@@ -119,17 +135,20 @@ export function ShelfView() {
               onClick={() => setShowMembers(true)}
               style={{ display: 'flex', gap: 4, alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
             >
-              {members.map(([uid, m]) => (
-                <div key={uid} style={{
-                  width: 28, height: 28, borderRadius: '50%',
-                  background: m.color + '33',
-                  border: `2px solid ${m.color}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 11, fontWeight: 700, color: m.color,
-                }}>
-                  {m.displayName[0].toUpperCase()}
-                </div>
-              ))}
+              {members.map(([uid, m]) => {
+                const name = memberNames[uid] ?? m.displayName
+                return (
+                  <div key={uid} style={{
+                    width: 28, height: 28, borderRadius: '50%',
+                    background: m.color + '33',
+                    border: `2px solid ${m.color}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 11, fontWeight: 700, color: m.color,
+                  }}>
+                    {name[0].toUpperCase()}
+                  </div>
+                )
+              })}
             </button>
             {members.length < 4 && (
               <button
@@ -239,20 +258,23 @@ export function ShelfView() {
 
             {/* Current members */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
-              {members.map(([uid, m]) => (
-                <div key={uid} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: m.color + '33', border: `2px solid ${m.color}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: m.color, flexShrink: 0 }}>
-                    {m.displayName[0].toUpperCase()}
+              {members.map(([uid, m]) => {
+                const name = memberNames[uid] ?? m.displayName
+                return (
+                  <div key={uid} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: m.color + '33', border: `2px solid ${m.color}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: m.color, flexShrink: 0 }}>
+                      {name[0].toUpperCase()}
+                    </div>
+                    <span style={{ fontWeight: 600, fontSize: 15 }}>{name}</span>
+                    {uid === shelf.createdBy && (
+                      <span style={{ fontSize: 11, color: 'var(--color-text-muted)', background: 'var(--color-bg)', borderRadius: 4, padding: '2px 6px' }}>creator</span>
+                    )}
+                    {uid === user.uid && (
+                      <span style={{ fontSize: 11, color: 'var(--color-text-muted)', marginLeft: 'auto' }}>you</span>
+                    )}
                   </div>
-                  <span style={{ fontWeight: 600, fontSize: 15 }}>{m.displayName}</span>
-                  {uid === shelf.createdBy && (
-                    <span style={{ fontSize: 11, color: 'var(--color-text-muted)', background: 'var(--color-bg)', borderRadius: 4, padding: '2px 6px' }}>creator</span>
-                  )}
-                  {uid === user.uid && (
-                    <span style={{ fontSize: 11, color: 'var(--color-text-muted)', marginLeft: 'auto' }}>you</span>
-                  )}
-                </div>
-              ))}
+                )
+              })}
             </div>
 
             {/* Former members */}
