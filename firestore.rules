@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── User profiles ──────────────────────────────────────────────────────
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ── Shelves ────────────────────────────────────────────────────────────
+    function isMember(shelfId) {
+      return request.auth != null &&
+        request.auth.uid in get(/databases/$(database)/documents/shelves/$(shelfId)).data.members;
+    }
+
+    match /shelves/{shelfId} {
+      allow read: if isMember(shelfId);
+      allow create: if request.auth != null;
+      allow update: if isMember(shelfId);
+      allow delete: if false;
+
+      // ── Puzzles ──────────────────────────────────────────────────────────
+      match /puzzles/{puzzleId} {
+        allow read, write: if isMember(shelfId);
+
+        // CRITICAL: Solution documents are NEVER readable by clients
+        match /solution {
+          allow read: if false;
+          allow write: if false;
+        }
+
+        // ── Puzzle chat ───────────────────────────────────────────────────
+        match /chat/{messageId} {
+          allow read, write: if isMember(shelfId);
+        }
+      }
+
+      // ── Shelf chat ───────────────────────────────────────────────────────
+      match /chat/{messageId} {
+        allow read, write: if isMember(shelfId);
+      }
+    }
+  }
+}

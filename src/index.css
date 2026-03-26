@@ -1,0 +1,179 @@
+@import "tailwindcss";
+
+/* ── Bookshelf palette ───────────────────────────────────────────────────── */
+:root {
+  --color-bg:           #F7F3EE;
+  --color-surface:      #FBF8F4;
+  --color-border:       #E4D9CB;
+  --color-text:         #3D2E22;
+  --color-text-muted:   #7B6B5A;
+  --color-accent:       #8B6F4E;
+
+  /* validation — reserved, never used as user colors */
+  --color-correct:      #6BAE7A;
+  --color-incorrect:    #C97070;
+  --color-revealed:     #A0998E;
+
+  /* grid */
+  --cell-radius:        5px;
+  --cell-border:        0.5px solid #E4D9CB;
+}
+
+.dark {
+  --color-bg:           #1C1612;
+  --color-surface:      #2A211A;
+  --color-border:       #4A3D30;
+  --color-text:         #E8E0D4;
+  --color-text-muted:   #9B8B78;
+  --color-accent:       #B89B7A;
+
+  --color-correct:      #4E8A5E;
+  --color-incorrect:    #9E5555;
+  --color-revealed:     #736D64;
+}
+
+/* ── Base ────────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+
+/* ── Utility classes ─────────────────────────────────────────────────────── */
+.surface {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+}
+
+.btn-primary {
+  background-color: var(--color-accent);
+  color: var(--color-surface);
+  border: none;
+  border-radius: 10px;
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 150ms ease-out;
+  min-height: 44px;
+}
+.btn-primary:hover { opacity: 0.88; }
+.btn-primary:active { opacity: 0.75; }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-secondary {
+  background-color: transparent;
+  color: var(--color-text);
+  border: 1.5px solid var(--color-border);
+  border-radius: 10px;
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 150ms ease-out;
+  min-height: 44px;
+}
+.btn-secondary:hover { background-color: var(--color-border); }
+.btn-secondary:active { opacity: 0.75; }
+.btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.input {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  border: 1.5px solid var(--color-border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 15px;
+  width: 100%;
+  outline: none;
+  transition: border-color 150ms ease-out;
+  min-height: 44px;
+}
+.input:focus { border-color: var(--color-accent); }
+.input::placeholder { color: var(--color-text-muted); }
+
+.label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+/* ── Puzzle cell base ────────────────────────────────────────────────────── */
+.puzzle-cell {
+  border: var(--cell-border);
+  border-radius: var(--cell-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  transition: background-color 100ms ease-out;
+  user-select: none;
+}
+
+.puzzle-cell.black {
+  background-color: #2C2C2A;
+  border-color: #2C2C2A;
+  cursor: default;
+}
+
+.puzzle-cell.selected {
+  background-color: color-mix(in srgb, var(--color-accent) 20%, var(--color-surface));
+}
+
+.puzzle-cell.in-word {
+  background-color: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+}
+
+.puzzle-cell.correct {
+  background-color: color-mix(in srgb, var(--color-correct) 20%, var(--color-surface));
+}
+
+.puzzle-cell.incorrect {
+  background-color: color-mix(in srgb, var(--color-incorrect) 20%, var(--color-surface));
+}
+
+.puzzle-cell.revealed {
+  background-color: color-mix(in srgb, var(--color-revealed) 20%, var(--color-surface));
+}
+
+.puzzle-cell.conflict {
+  outline: 1.5px solid var(--color-incorrect);
+  outline-offset: -1px;
+}
+
+.cell-number {
+  position: absolute;
+  top: 2px;
+  left: 3px;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--color-text-muted);
+  opacity: 0.7;
+}
+
+.cell-letter {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1;
+}

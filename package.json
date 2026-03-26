@@ -1,0 +1,36 @@
+{
+  "name": "puzzle-shelf",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FinalShellShock/puzzleshelf.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/FinalShellShock/puzzleshelf/issues"
+  },
+  "homepage": "https://github.com/FinalShellShock/puzzleshelf#readme",
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "tailwindcss": "^4.2.2",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.2"
+  },
+  "dependencies": {
+    "firebase": "^12.11.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-router-dom": "^7.13.2"
+  }
+}
