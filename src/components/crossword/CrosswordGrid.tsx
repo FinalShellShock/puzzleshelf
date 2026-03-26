@@ -12,7 +12,7 @@ interface Props {
 export function CrosswordGrid({ puzzle, shelf, selectedCell, activeWordCells, onCellSelect }: Props) {
   const { gridWidth: cols, gridHeight: rows } = puzzle
   // Cell size: fill viewport width on mobile
-  const cellSize = Math.min(Math.floor((Math.min(window.innerWidth, 480) - 16) / cols), 44)
+  const cellSize = Math.min(Math.floor((window.innerWidth - 2) / cols), 44)
 
   return (
     <div

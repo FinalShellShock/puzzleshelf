@@ -3,6 +3,7 @@ import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 import { checkPuzzle, revealCells } from '../../lib/functions'
 import { CrosswordGrid } from './CrosswordGrid'
+import { CrosswordKeyboard } from './CrosswordKeyboard'
 import { ChatPanel } from '../chat/ChatPanel'
 import { Spinner } from '../ui/Spinner'
 import { useTheme } from '../../hooks/useTheme'
@@ -23,27 +24,9 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
   const [showChat, setShowChat] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-  // Tracks cursor position synchronously so rapid keystrokes don't all write to the same cell
   const cursorRef = useRef<string | null>(null)
   const directionRef = useRef<Direction>('across')
-  // Keyboard height — push nav bar above soft keyboard via Visual Viewport API
-  const [navBottom, setNavBottom] = useState(0)
   const { dark, toggle: toggleTheme } = useTheme()
-
-  useEffect(() => {
-    const vv = window.visualViewport
-    if (!vv) return
-    function update() {
-      setNavBottom(Math.max(0, window.innerHeight - vv!.height - vv!.offsetTop))
-    }
-    vv.addEventListener('resize', update)
-    vv.addEventListener('scroll', update)
-    return () => {
-      vv.removeEventListener('resize', update)
-      vv.removeEventListener('scroll', update)
-    }
-  }, [])
 
   const myColor = shelf.members[userId]?.color ?? '#888'
 
@@ -88,10 +71,6 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
     ? (direction === 'across' ? puzzle.clues.across : puzzle.clues.down)?.[clueNumber] ?? ''
     : ''
 
-  function focusInput() {
-    inputRef.current?.focus()
-  }
-
   function navigateToWord(wordId: string, dir: Direction) {
     const cells = sortCells(getCellsInWord(wordId, dir), dir)
     if (cells.length === 0) return
@@ -101,7 +80,6 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
     directionRef.current = dir
     setSelectedCell(target)
     setDirection(dir)
-    focusInput()
   }
 
   function navigateWord(delta: 1 | -1) {
@@ -128,7 +106,6 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
       if (supportsNew) {
         directionRef.current = newDir
         setDirection(newDir)
-        focusInput()
       } else {
         const words = getOrderedWords(newDir)
         if (words[0]) navigateToWord(words[0], newDir)
@@ -140,8 +117,6 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
   }
 
   const handleCellSelect = useCallback((cellKey: string) => {
-    // Focus input synchronously inside the event handler so iOS brings up the keyboard
-    focusInput()
     if (cellKey === selectedCell) {
       const meta = puzzle.gridMeta?.[cellKey]
       if (meta?.acrossWord && meta?.downWord) {
@@ -189,26 +164,7 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
       cursorRef.current = nextKey
       setSelectedCell(nextKey)
     } else {
-      // End of word — jump to next word's first empty cell
       navigateWord(1)
-    }
-  }
-
-  function moveCursor(key: string) {
-    if (!selectedCell) return
-    const m = selectedCell.match(/r(\d+)c(\d+)/)
-    if (!m) return
-    const row = parseInt(m[1]), col = parseInt(m[2])
-    const moves: Record<string, string> = {
-      ArrowUp: `r${row - 1}c${col}`,
-      ArrowDown: `r${row + 1}c${col}`,
-      ArrowLeft: `r${row}c${col - 1}`,
-      ArrowRight: `r${row}c${col + 1}`,
-    }
-    const nextKey = moves[key]
-    if (nextKey && puzzle.gridMeta?.[nextKey] && !puzzle.gridMeta[nextKey].isBlack) {
-      setSelectedCell(nextKey)
-      setDirection(key === 'ArrowLeft' || key === 'ArrowRight' ? 'across' : 'down')
     }
   }
 
@@ -216,17 +172,56 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
     const cell = cursorRef.current
     if (!cell) return
     const cellAtWrite = cell
-    advanceCursor(cellAtWrite) // advance cursor immediately (synchronously) before the async write
+    advanceCursor(cellAtWrite)
     await writeCell(cellAtWrite, letter)
   }
 
-  async function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (!selectedCell) return
+  async function handleDelete() {
+    const cell = cursorRef.current
+    if (!cell) return
+    const dir = directionRef.current
+    const current = puzzle.cells[cell]?.value
+    if (current) {
+      await writeCell(cell, '')
+    } else {
+      const m = cell.match(/r(\d+)c(\d+)/)
+      if (!m) return
+      const row = parseInt(m[1]), col = parseInt(m[2])
+      const prevKey = dir === 'across' ? `r${row}c${col - 1}` : `r${row - 1}c${col}`
+      const prevMeta = puzzle.gridMeta?.[prevKey]
+      const currentWordId = getWordId(cell, dir)
+      const prevWordId = prevMeta ? getWordId(prevKey, dir) : undefined
+      if (prevMeta && !prevMeta.isBlack && prevWordId === currentWordId) {
+        cursorRef.current = prevKey
+        setSelectedCell(prevKey)
+        await writeCell(prevKey, '')
+      }
+    }
+  }
+
+  // Physical keyboard support (desktop) via document listener
+  const keyHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {})
+  keyHandlerRef.current = (e: KeyboardEvent) => {
+    if (!cursorRef.current) return
     const key = e.key
 
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) {
       e.preventDefault()
-      moveCursor(key)
+      const m = cursorRef.current.match(/r(\d+)c(\d+)/)
+      if (!m) return
+      const row = parseInt(m[1]), col = parseInt(m[2])
+      const moves: Record<string, string> = {
+        ArrowUp: `r${row - 1}c${col}`,
+        ArrowDown: `r${row + 1}c${col}`,
+        ArrowLeft: `r${row}c${col - 1}`,
+        ArrowRight: `r${row}c${col + 1}`,
+      }
+      const nextKey = moves[key]
+      if (nextKey && puzzle.gridMeta?.[nextKey] && !puzzle.gridMeta[nextKey].isBlack) {
+        cursorRef.current = nextKey
+        setSelectedCell(nextKey)
+        setDirection(key === 'ArrowLeft' || key === 'ArrowRight' ? 'across' : 'down')
+      }
       return
     }
 
@@ -238,45 +233,21 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
 
     if (key === 'Backspace') {
       e.preventDefault()
-      const cell = cursorRef.current ?? selectedCell
-      const dir = directionRef.current
-      const current = puzzle.cells[cell]?.value
-      if (current) {
-        await writeCell(cell, '')
-      } else {
-        const m = cell.match(/r(\d+)c(\d+)/)
-        if (!m) return
-        const row = parseInt(m[1]), col = parseInt(m[2])
-        const prevKey = dir === 'across' ? `r${row}c${col - 1}` : `r${row - 1}c${col}`
-        const prevMeta = puzzle.gridMeta?.[prevKey]
-        const currentWordId = getWordId(cell, dir)
-        const prevWordId = prevMeta ? getWordId(prevKey, dir) : undefined
-        if (prevMeta && !prevMeta.isBlack && prevWordId === currentWordId) {
-          cursorRef.current = prevKey
-          setSelectedCell(prevKey)
-          await writeCell(prevKey, '')
-        }
-      }
+      void handleDelete()
       return
     }
 
     if (/^[A-Za-z]$/.test(key)) {
       e.preventDefault()
-      await handleLetterInput(key.toUpperCase())
+      void handleLetterInput(key.toUpperCase())
     }
   }
 
-  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    // Handles mobile soft keyboard input (onChange fires; onKeyDown is unreliable on mobile)
-    const val = e.target.value
-    if (!val) return
-    const char = val[val.length - 1]
-    if (/^[A-Za-z]$/.test(char)) {
-      void handleLetterInput(char.toUpperCase())
-    }
-    // Reset so the next keystroke is detected as a new character
-    if (inputRef.current) inputRef.current.value = ''
-  }
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => keyHandlerRef.current(e)
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [])
 
   async function handleCheck(scope: 'word' | 'all') {
     setMenuOpen(false)
@@ -345,47 +316,8 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
         </div>
       </div>
 
-      {/* Active clue bar — tap to toggle direction */}
-      <div
-        onClick={() => selectedCell && toggleDirection()}
-        style={{
-          padding: '10px 16px',
-          background: 'var(--color-surface)',
-          borderBottom: '1px solid var(--color-border)',
-          flexShrink: 0,
-          minHeight: 48,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          cursor: selectedCell ? 'pointer' : 'default',
-          userSelect: 'none',
-        }}
-      >
-        {activeWord ? (
-          <>
-            <span style={{
-              fontSize: 12,
-              fontWeight: 700,
-              color: 'var(--color-accent)',
-              background: 'color-mix(in srgb, var(--color-accent) 12%, var(--color-surface))',
-              padding: '3px 8px',
-              borderRadius: 12,
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-            }}>
-              {clueNumber} {direction === 'across' ? '→' : '↓'}
-            </span>
-            <span style={{ fontSize: 14, lineHeight: 1.4, color: 'var(--color-text)' }}>
-              {clueText}
-            </span>
-          </>
-        ) : (
-          <span style={{ fontSize: 14, color: 'var(--color-text-muted)' }}>Tap a cell to begin</span>
-        )}
-      </div>
-
-      {/* Grid — paddingBottom reserves space for the fixed nav bar + keyboard */}
-      <div style={{ flex: 1, overflow: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 8, paddingBottom: navBottom + 64 }}>
+      {/* Grid */}
+      <div style={{ flex: 1, overflow: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '8px 0' }}>
         <CrosswordGrid
           puzzle={puzzle}
           shelf={shelf}
@@ -396,61 +328,57 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
         />
       </div>
 
-      {/* Word navigation bar — fixed so it stays above the soft keyboard */}
+      {/* Clue bar with prev/next navigation */}
       <div style={{
-        position: 'fixed',
-        bottom: navBottom,
-        left: 0,
-        right: 0,
         display: 'flex',
         alignItems: 'stretch',
         borderTop: '1px solid var(--color-border)',
-        background: 'var(--color-bg)',
-        zIndex: 10,
+        borderBottom: '1px solid var(--color-border)',
+        background: 'var(--color-surface)',
+        flexShrink: 0,
+        minHeight: 52,
       }}>
-        <button onClick={() => navigateWord(-1)} style={navBtnStyle}>
-          ‹
-        </button>
-        <button
-          onClick={toggleDirection}
+        <button onClick={() => navigateWord(-1)} style={navBtnStyle}>‹</button>
+        <div
+          onClick={() => selectedCell && toggleDirection()}
           style={{
-            ...navBtnStyle,
             flex: 1,
-            fontWeight: 700,
-            fontSize: 13,
-            letterSpacing: 1,
-            borderLeft: '1px solid var(--color-border)',
-            borderRight: '1px solid var(--color-border)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '8px 4px',
+            cursor: selectedCell ? 'pointer' : 'default',
+            userSelect: 'none',
+            overflow: 'hidden',
           }}
         >
-          {direction === 'across' ? '→ ACROSS' : '↓ DOWN'}
-        </button>
-        <button onClick={() => navigateWord(1)} style={navBtnStyle}>
-          ›
-        </button>
+          {activeWord ? (
+            <>
+              <span style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: 'var(--color-accent)',
+                background: 'color-mix(in srgb, var(--color-accent) 12%, var(--color-surface))',
+                padding: '3px 8px',
+                borderRadius: 12,
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}>
+                {clueNumber} {direction === 'across' ? '→' : '↓'}
+              </span>
+              <span style={{ fontSize: 13, lineHeight: 1.4, color: 'var(--color-text)', overflow: 'hidden' }}>
+                {clueText}
+              </span>
+            </>
+          ) : (
+            <span style={{ fontSize: 13, color: 'var(--color-text-muted)', padding: '0 4px' }}>Tap a cell to begin</span>
+          )}
+        </div>
+        <button onClick={() => navigateWord(1)} style={navBtnStyle}>›</button>
       </div>
 
-      {/* Hidden input — captures keyboard on desktop and mobile */}
-      <input
-        ref={inputRef}
-        type="text"
-        inputMode="text"
-        autoCapitalize="characters"
-        autoComplete="off"
-        autoCorrect="off"
-        spellCheck={false}
-        onKeyDown={handleKeyDown}
-        onChange={handleInputChange}
-        style={{
-          position: 'fixed',
-          top: -200,
-          left: -200,
-          width: 1,
-          height: 1,
-          opacity: 0.01,
-          fontSize: 16, // Prevent iOS zoom on focus
-        }}
-      />
+      {/* Custom keyboard */}
+      <CrosswordKeyboard onLetter={l => void handleLetterInput(l)} onDelete={() => void handleDelete()} />
 
       {/* Chat slide-up */}
       {showChat && (
@@ -502,8 +430,8 @@ const menuItemStyle: React.CSSProperties = {
 
 const navBtnStyle: React.CSSProperties = {
   background: 'none', border: 'none', cursor: 'pointer',
-  fontSize: 22, padding: '12px 20px',
+  fontSize: 22, padding: '12px 18px',
   color: 'var(--color-text)',
-  minHeight: 48,
   display: 'flex', alignItems: 'center', justifyContent: 'center',
+  flexShrink: 0,
 }
