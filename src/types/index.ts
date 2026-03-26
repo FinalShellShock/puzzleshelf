@@ -27,6 +27,10 @@ export interface ShelfMember {
   lastSeen: Timestamp | null
 }
 
+export interface FormerShelfMember extends ShelfMember {
+  leftAt: Timestamp
+}
+
 export interface Shelf {
   id: string
   name: string
@@ -34,6 +38,7 @@ export interface Shelf {
   createdBy: string
   createdAt: Timestamp
   members: Record<string, ShelfMember>
+  formerMembers?: Record<string, FormerShelfMember>
 }
 
 // ─── Puzzle ───────────────────────────────────────────────────────────────────

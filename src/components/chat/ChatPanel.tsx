@@ -106,8 +106,9 @@ function MessageRow({ msg, shelf, userId, isReactionOpen, onLongPress, onReact }
   onReact: (emoji: string) => void
 }) {
   const isMe = msg.sentBy === userId
-  const sender = shelf.members[msg.sentBy]
-  const senderColor = sender?.color ?? 'var(--color-text-muted)'
+  const sender = shelf.members[msg.sentBy] ?? shelf.formerMembers?.[msg.sentBy]
+  const isFormer = !shelf.members[msg.sentBy] && !!shelf.formerMembers?.[msg.sentBy]
+  const senderColor = sender ? (isFormer ? '#A09890' : sender.color) : 'var(--color-text-muted)'
   const senderName = sender?.displayName ?? 'Unknown'
   const [showFullTime, setShowFullTime] = useState(false)
 

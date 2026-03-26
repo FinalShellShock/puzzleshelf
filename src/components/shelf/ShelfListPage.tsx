@@ -204,6 +204,8 @@ function JoinShelfModal({ userId, displayName, onClose, onJoined }: {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  const isRejoining = !!(shelf && shelf.formerMembers?.[userId])
+
   async function lookupCode() {
     setError('')
     setLoading(true)
@@ -226,7 +228,7 @@ function JoinShelfModal({ userId, displayName, onClose, onJoined }: {
     if (!shelf) return
     setLoading(true)
     try {
-      await updateDoc(doc(db, 'shelves', shelf.id), {
+      const update: Record<string, unknown> = {
         [`members.${userId}`]: {
           displayName,
           color: color.hex,
@@ -235,7 +237,13 @@ function JoinShelfModal({ userId, displayName, onClose, onJoined }: {
           currentPuzzle: null,
           lastSeen: serverTimestamp(),
         }
-      })
+      }
+      // Remove from formerMembers if rejoining
+      if (isRejoining) {
+        const { deleteField } = await import('firebase/firestore')
+        update[`formerMembers.${userId}`] = deleteField()
+      }
+      await updateDoc(doc(db, 'shelves', shelf.id), update)
       onJoined(shelf.id)
     } catch {
       setError('Failed to join shelf')
@@ -250,7 +258,7 @@ function JoinShelfModal({ userId, displayName, onClose, onJoined }: {
     <Modal title="Join a shelf" onClose={onClose} footer={
       shelf ? (
         <button className="btn-primary" style={{ width: '100%' }} onClick={handleJoin} disabled={loading}>
-          {loading ? <Spinner size={18} /> : `Join "${shelf.name}"`}
+          {loading ? <Spinner size={18} /> : isRejoining ? `Rejoin "${shelf.name}"` : `Join "${shelf.name}"`}
         </button>
       ) : null
     }>
@@ -280,6 +288,11 @@ function JoinShelfModal({ userId, displayName, onClose, onJoined }: {
               <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--color-text-muted)' }}>
                 {Object.keys(shelf.members).length} member{Object.keys(shelf.members).length !== 1 ? 's' : ''}
               </p>
+              {isRejoining && (
+                <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--color-accent)', fontWeight: 600 }}>
+                  Welcome back — your contributions are still here.
+                </p>
+              )}
             </div>
             <div>
               <label className="label">Choose your color</label>

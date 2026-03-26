@@ -1,4 +1,5 @@
 import type { Shelf, Puzzle } from '../../types'
+import { FORMER_MEMBER_COLOR } from '../../utils/colors'
 
 interface Props {
   shelf: Shelf
@@ -6,7 +7,10 @@ interface Props {
 }
 
 export function ShelfStats({ shelf, puzzles }: Props) {
-  const members = Object.entries(shelf.members)
+  const members = [
+    ...Object.entries(shelf.members).map(([uid, m]) => ({ uid, displayName: m.displayName, color: m.color, isFormer: false })),
+    ...Object.entries(shelf.formerMembers ?? {}).map(([uid, m]) => ({ uid, displayName: m.displayName, color: FORMER_MEMBER_COLOR, isFormer: true })),
+  ]
   const completed = puzzles.filter(p => p.status === 'completed')
   const completionRate = puzzles.length > 0 ? Math.round((completed.length / puzzles.length) * 100) : 0
 
@@ -41,21 +45,21 @@ export function ShelfStats({ shelf, puzzles }: Props) {
         <div className="surface" style={{ padding: 20 }}>
           <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700 }}>Contributions</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {members.map(([uid, m]) => {
+            {members.map(({ uid, displayName, color, isFormer }) => {
               const count = totalByUser[uid] ?? 0
+              if (count === 0 && isFormer) return null  // hide former members with no contributions
               const pct = grandTotal > 0 ? Math.round((count / grandTotal) * 100) : 0
               return (
-                <div key={uid}>
+                <div key={uid} style={{ opacity: isFormer ? 0.7 : 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <span style={{ fontWeight: 600, fontSize: 14, color: m.color }}>{m.displayName}</span>
+                    <span style={{ fontWeight: 600, fontSize: 14, color }}>
+                      {displayName}
+                      {isFormer && <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--color-text-muted)', marginLeft: 6 }}>left</span>}
+                    </span>
                     <span style={{ fontSize: 14, color: 'var(--color-text-muted)' }}>{pct}% · {count} cells</span>
                   </div>
                   <div style={{ height: 8, borderRadius: 4, background: 'var(--color-border)' }}>
-                    <div style={{
-                      height: '100%', borderRadius: 4,
-                      width: `${pct}%`, background: m.color,
-                      transition: 'width 300ms ease-out',
-                    }} />
+                    <div style={{ height: '100%', borderRadius: 4, width: `${pct}%`, background: color, transition: 'width 300ms ease-out' }} />
                   </div>
                 </div>
               )

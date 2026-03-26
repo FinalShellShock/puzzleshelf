@@ -1,4 +1,5 @@
 import type { Puzzle, Shelf } from '../../types'
+import { getMemberColor } from '../../utils/colors'
 
 interface Props {
   puzzle: Puzzle
@@ -49,8 +50,8 @@ export function CrosswordGrid({ puzzle, shelf, selectedCell, activeWordCells, on
           const isInWord = activeWordCells.includes(key)
           const status = cell?.status ?? 'unchecked'
           const filledBy = cell?.filledBy
-          const letterColor = filledBy && filledBy !== 'system' && shelf.members[filledBy]
-            ? shelf.members[filledBy].color
+          const letterColor = filledBy && filledBy !== 'system'
+            ? getMemberColor(shelf, filledBy)
             : 'var(--color-text-muted)'
 
           let cellClass = 'puzzle-cell'

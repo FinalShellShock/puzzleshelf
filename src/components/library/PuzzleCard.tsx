@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { deletePuzzle } from '../../lib/functions'
 import type { Puzzle, Shelf } from '../../types'
+import { FORMER_MEMBER_COLOR } from '../../utils/colors'
 
 interface PuzzleCardProps {
   puzzle: Puzzle
@@ -16,18 +17,19 @@ export function PuzzleCard({ puzzle, shelf, userId: _userId, onClick }: PuzzleCa
   const cells = Object.values(puzzle.cells ?? {})
   const totalFilled = cells.filter(c => c.value && !c.given).length
 
-  // Contribution bars
-  const members = Object.entries(shelf.members)
-  const contributions = members.map(([uid, m]) => ({
-    uid,
-    color: m.color,
-    name: m.displayName,
+  // Contribution bars — include former members so progress bar stays accurate
+  const allContributors = [
+    ...Object.entries(shelf.members).map(([uid, m]) => ({ uid, color: m.color, name: m.displayName })),
+    ...Object.entries(shelf.formerMembers ?? {}).map(([uid, m]) => ({ uid, color: FORMER_MEMBER_COLOR, name: m.displayName })),
+  ]
+  const contributions = allContributors.map(({ uid, color, name }) => ({
+    uid, color, name,
     count: cells.filter(c => c.filledBy === uid && c.value).length,
   }))
   const totalCells = puzzle.gridWidth * puzzle.gridHeight
 
-  // Who's currently in this puzzle
-  const presentMembers = members.filter(([, m]) => m.currentPuzzle === puzzle.id)
+  // Who's currently in this puzzle (only current members can be present)
+  const presentMembers = Object.entries(shelf.members).filter(([, m]) => m.currentPuzzle === puzzle.id)
 
   const statusColor = puzzle.status === 'completed'
     ? 'var(--color-correct)'

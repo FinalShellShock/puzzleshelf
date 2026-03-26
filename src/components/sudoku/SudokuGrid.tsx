@@ -1,4 +1,5 @@
 import type { Puzzle, Shelf } from '../../types'
+import { getMemberColor } from '../../utils/colors'
 
 interface Props {
   puzzle: Puzzle
@@ -33,8 +34,8 @@ export function SudokuGrid({ puzzle, shelf, selectedCell, conflicts, onCellSelec
           const status = cell?.status ?? 'unchecked'
           const isSelected = selectedCell === key
           const isConflict = conflicts.has(key) && !isGiven
-          const memberColor = filledBy && filledBy !== 'system' && shelf.members[filledBy]
-            ? shelf.members[filledBy].color
+          const memberColor = filledBy && filledBy !== 'system'
+            ? getMemberColor(shelf, filledBy)
             : 'var(--color-text)'
 
           // Box border (thick lines at 3-cell boundaries)
