@@ -324,7 +324,7 @@ def _parse_lat_xword_data(xword_data: dict, date: datetime) -> tuple:
 
 # ── fetchCrossword ─────────────────────────────────────────────────────────────
 
-@https_fn.on_call(region="us-central1", memory=options.MemoryOption.GB_1)
+@https_fn.on_call(region="us-central1", memory=options.MemoryOption.GB_1, invoker="public")
 def fetch_crossword(req: https_fn.CallableRequest) -> dict:
     """
     Fetch an LA Times crossword for a given date directly from AmuseLabs.
@@ -396,7 +396,7 @@ def fetch_crossword(req: https_fn.CallableRequest) -> dict:
 
 # ── generateSudoku ─────────────────────────────────────────────────────────────
 
-@https_fn.on_call(region="us-central1")
+@https_fn.on_call(region="us-central1", invoker="public")
 def generate_sudoku(req: https_fn.CallableRequest) -> dict:
     """Generate a sudoku puzzle of a given difficulty."""
     uid = req.auth.uid if req.auth else None
@@ -510,7 +510,7 @@ def _is_valid(grid: list, row: int, col: int, num: int) -> bool:
 
 # ── checkPuzzle ───────────────────────────────────────────────────────────────
 
-@https_fn.on_call(region="us-central1")
+@https_fn.on_call(region="us-central1", invoker="public")
 def check_puzzle(req: https_fn.CallableRequest) -> dict:
     """
     Compare submitted cell values against the solution.
@@ -601,7 +601,7 @@ def check_puzzle(req: https_fn.CallableRequest) -> dict:
 
 # ── revealCells ───────────────────────────────────────────────────────────────
 
-@https_fn.on_call(region="us-central1")
+@https_fn.on_call(region="us-central1", invoker="public")
 def reveal_cells(req: https_fn.CallableRequest) -> dict:
     """
     Reveal the correct answer for a cell or word.
@@ -669,7 +669,7 @@ def reveal_cells(req: https_fn.CallableRequest) -> dict:
 
 # ── deletePuzzle ───────────────────────────────────────────────────────────────
 
-@https_fn.on_call(region="us-central1")
+@https_fn.on_call(region="us-central1", invoker="public")
 def delete_puzzle(req: https_fn.CallableRequest) -> dict:
     """
     Soft-delete a puzzle by setting status='deleted'.
