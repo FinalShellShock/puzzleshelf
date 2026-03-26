@@ -23,6 +23,9 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  // Tracks cursor position synchronously so rapid keystrokes don't all write to the same cell
+  const cursorRef = useRef<string | null>(null)
+  const directionRef = useRef<Direction>('across')
 
   const myColor = shelf.members[userId]?.color ?? '#888'
 
@@ -76,29 +79,36 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
     if (cells.length === 0) return
     const firstEmpty = cells.find(k => !puzzle.cells[k]?.value)
     const target = firstEmpty ?? cells[0]
+    cursorRef.current = target
+    directionRef.current = dir
     setSelectedCell(target)
     setDirection(dir)
     focusInput()
   }
 
   function navigateWord(delta: 1 | -1) {
-    const words = getOrderedWords(direction)
+    const dir = directionRef.current
+    const currentCell = cursorRef.current
+    const currentWord = currentCell ? getWordId(currentCell, dir) : undefined
+    const words = getOrderedWords(dir)
     if (words.length === 0) return
-    if (!activeWord) {
-      navigateToWord(words[0], direction)
+    if (!currentWord) {
+      navigateToWord(words[0], dir)
       return
     }
-    const idx = words.indexOf(activeWord)
+    const idx = words.indexOf(currentWord)
     const nextIdx = (idx + delta + words.length) % words.length
-    navigateToWord(words[nextIdx], direction)
+    navigateToWord(words[nextIdx], dir)
   }
 
   function toggleDirection() {
-    const newDir: Direction = direction === 'across' ? 'down' : 'across'
-    if (selectedCell) {
-      const meta = puzzle.gridMeta?.[selectedCell]
+    const newDir: Direction = directionRef.current === 'across' ? 'down' : 'across'
+    const cell = cursorRef.current
+    if (cell) {
+      const meta = puzzle.gridMeta?.[cell]
       const supportsNew = newDir === 'across' ? !!meta?.acrossWord : !!meta?.downWord
       if (supportsNew) {
+        directionRef.current = newDir
         setDirection(newDir)
         focusInput()
       } else {
@@ -117,18 +127,23 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
     if (cellKey === selectedCell) {
       const meta = puzzle.gridMeta?.[cellKey]
       if (meta?.acrossWord && meta?.downWord) {
-        setDirection(d => d === 'across' ? 'down' : 'across')
+        const newDir = directionRef.current === 'across' ? 'down' : 'across'
+        directionRef.current = newDir
+        setDirection(newDir)
       }
     } else {
+      cursorRef.current = cellKey
       setSelectedCell(cellKey)
       const meta = puzzle.gridMeta?.[cellKey]
-      if (direction === 'across' && !meta?.acrossWord && meta?.downWord) {
+      if (directionRef.current === 'across' && !meta?.acrossWord && meta?.downWord) {
+        directionRef.current = 'down'
         setDirection('down')
-      } else if (direction === 'down' && !meta?.downWord && meta?.acrossWord) {
+      } else if (directionRef.current === 'down' && !meta?.downWord && meta?.acrossWord) {
+        directionRef.current = 'across'
         setDirection('across')
       }
     }
-  }, [selectedCell, direction, puzzle.gridMeta])
+  }, [selectedCell, puzzle.gridMeta])
 
   async function writeCell(cellKey: string, value: string) {
     await updateDoc(doc(db, 'shelves', shelfId, 'puzzles', puzzle.id), {
@@ -143,15 +158,17 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
   }
 
   function advanceCursor(fromCell: string) {
+    const dir = directionRef.current
     const m = fromCell.match(/r(\d+)c(\d+)/)
     if (!m) return
     const row = parseInt(m[1]), col = parseInt(m[2])
-    const nextKey = direction === 'across' ? `r${row}c${col + 1}` : `r${row + 1}c${col}`
+    const nextKey = dir === 'across' ? `r${row}c${col + 1}` : `r${row + 1}c${col}`
     const nextMeta = puzzle.gridMeta?.[nextKey]
-    const currentWordId = getWordId(fromCell, direction)
-    const nextWordId = nextMeta ? getWordId(nextKey, direction) : undefined
+    const currentWordId = getWordId(fromCell, dir)
+    const nextWordId = nextMeta ? getWordId(nextKey, dir) : undefined
 
     if (nextMeta && !nextMeta.isBlack && nextWordId === currentWordId) {
+      cursorRef.current = nextKey
       setSelectedCell(nextKey)
     } else {
       // End of word — jump to next word's first empty cell
@@ -178,9 +195,11 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
   }
 
   async function handleLetterInput(letter: string) {
-    if (!selectedCell) return
-    await writeCell(selectedCell, letter)
-    advanceCursor(selectedCell)
+    const cell = cursorRef.current
+    if (!cell) return
+    const cellAtWrite = cell
+    advanceCursor(cellAtWrite) // advance cursor immediately (synchronously) before the async write
+    await writeCell(cellAtWrite, letter)
   }
 
   async function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -201,18 +220,21 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
 
     if (key === 'Backspace') {
       e.preventDefault()
-      const current = puzzle.cells[selectedCell]?.value
+      const cell = cursorRef.current ?? selectedCell
+      const dir = directionRef.current
+      const current = puzzle.cells[cell]?.value
       if (current) {
-        await writeCell(selectedCell, '')
+        await writeCell(cell, '')
       } else {
-        const m = selectedCell.match(/r(\d+)c(\d+)/)
+        const m = cell.match(/r(\d+)c(\d+)/)
         if (!m) return
         const row = parseInt(m[1]), col = parseInt(m[2])
-        const prevKey = direction === 'across' ? `r${row}c${col - 1}` : `r${row - 1}c${col}`
+        const prevKey = dir === 'across' ? `r${row}c${col - 1}` : `r${row - 1}c${col}`
         const prevMeta = puzzle.gridMeta?.[prevKey]
-        const currentWordId = getWordId(selectedCell, direction)
-        const prevWordId = prevMeta ? getWordId(prevKey, direction) : undefined
+        const currentWordId = getWordId(cell, dir)
+        const prevWordId = prevMeta ? getWordId(prevKey, dir) : undefined
         if (prevMeta && !prevMeta.isBlack && prevWordId === currentWordId) {
+          cursorRef.current = prevKey
           setSelectedCell(prevKey)
           await writeCell(prevKey, '')
         }
