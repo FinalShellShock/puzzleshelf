@@ -348,10 +348,13 @@ def fetch_crossword(req: https_fn.CallableRequest) -> dict:
 
     # Check cache: any non-deleted crossword for this date on this shelf
     puzzles_ref = get_db().collection("shelves").document(shelf_id).collection("puzzles")
-    existing = puzzles_ref.where("type", "==", "crossword").where("sourceDate", "==", date_str).get()
-    non_deleted = [d for d in existing if d.to_dict().get("status") != "deleted"]
-    if non_deleted:
-        return {"puzzleId": non_deleted[0].id}
+    try:
+        existing = puzzles_ref.where("type", "==", "crossword").where("sourceDate", "==", date_str).get()
+        non_deleted = [d for d in existing if d.to_dict().get("status") != "deleted"]
+        if non_deleted:
+            return {"puzzleId": non_deleted[0].id}
+    except Exception as e:
+        raise https_fn.HttpsError("internal", f"Cache query failed: {e}")
 
     # Fetch and parse puzzle data directly from AmuseLabs
     try:
@@ -366,30 +369,33 @@ def fetch_crossword(req: https_fn.CallableRequest) -> dict:
         raise https_fn.HttpsError("internal", f"Failed to parse puzzle data: {e}")
 
     # Write puzzle document (solution excluded)
-    puzzle_ref = puzzles_ref.document()
-    puzzle_ref.set({
-        "type": "crossword",
-        "title": puzzle_title,
-        "source": "latimes",
-        "sourceDate": date_str,
-        "status": "active",
-        "addedBy": uid,
-        "addedAt": SERVER_TIMESTAMP,
-        "completedAt": None,
-        "difficulty": None,
-        "gridWidth": grid_width,
-        "gridHeight": grid_height,
-        "clues": {
-            "across": across_clues,
-            "down": down_clues,
-        },
-        "gridMeta": grid_meta,
-        "cells": {},
-    })
+    try:
+        puzzle_ref = puzzles_ref.document()
+        puzzle_ref.set({
+            "type": "crossword",
+            "title": puzzle_title,
+            "source": "latimes",
+            "sourceDate": date_str,
+            "status": "active",
+            "addedBy": uid,
+            "addedAt": SERVER_TIMESTAMP,
+            "completedAt": None,
+            "difficulty": None,
+            "gridWidth": grid_width,
+            "gridHeight": grid_height,
+            "clues": {
+                "across": across_clues,
+                "down": down_clues,
+            },
+            "gridMeta": grid_meta,
+            "cells": {},
+        })
 
-    # Solution document — unreadable by clients (Firestore rules deny reads)
-    solution_ref = puzzle_ref.collection("solution").document("data")
-    solution_ref.set({"grid": solution_grid})
+        # Solution document — unreadable by clients (Firestore rules deny reads)
+        solution_ref = puzzle_ref.collection("solution").document("data")
+        solution_ref.set({"grid": solution_grid})
+    except Exception as e:
+        raise https_fn.HttpsError("internal", f"Failed to write puzzle to Firestore: {e}")
 
     return {"puzzleId": puzzle_ref.id}
 
