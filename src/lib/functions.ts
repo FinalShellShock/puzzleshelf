@@ -20,3 +20,8 @@ export const revealCells = httpsCallable<
   { shelfId: string; puzzleId: string; scope: 'cell' | 'word'; cellKey?: string; wordId?: string },
   { updated: number }
 >(functions, 'reveal_cells')
+
+export const deletePuzzle = httpsCallable<
+  { shelfId: string; puzzleId: string },
+  { success: boolean }
+>(functions, 'delete_puzzle')

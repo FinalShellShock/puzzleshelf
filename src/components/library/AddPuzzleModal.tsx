@@ -87,7 +87,7 @@ function CrosswordPicker({ shelfId, puzzles, onAdded, onBack }: {
   const crosswordsByDate = useMemo(() => {
     const map: Record<string, Puzzle> = {}
     for (const p of puzzles) {
-      if (p.source === 'latimes' && p.sourceDate) {
+      if (p.type === 'crossword' && p.sourceDate && p.status !== 'deleted') {
         map[p.sourceDate] = p
       }
     }

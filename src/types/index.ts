@@ -39,7 +39,7 @@ export interface Shelf {
 // ─── Puzzle ───────────────────────────────────────────────────────────────────
 
 export type PuzzleType = 'crossword' | 'sudoku'
-export type PuzzleStatus = 'active' | 'completed' | 'abandoned'
+export type PuzzleStatus = 'active' | 'completed' | 'abandoned' | 'deleted'
 export type CellStatus = 'unchecked' | 'correct' | 'incorrect' | 'revealed'
 
 export interface PuzzleCell {

@@ -28,7 +28,8 @@ export function ShelfView() {
     if (!shelfId) return
     const q = query(collection(db, 'shelves', shelfId, 'puzzles'), orderBy('addedAt', 'desc'))
     return onSnapshot(q, snap => {
-      setPuzzles(snap.docs.map(d => ({ id: d.id, ...d.data() }) as Puzzle))
+      const all = snap.docs.map(d => ({ id: d.id, ...d.data() }) as Puzzle)
+      setPuzzles(all.filter(p => p.status !== 'deleted'))
       setPuzzlesLoading(false)
     })
   }, [shelfId])

@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { deletePuzzle } from '../../lib/functions'
 import type { Puzzle, Shelf } from '../../types'
 
 interface PuzzleCardProps {
@@ -8,6 +10,9 @@ interface PuzzleCardProps {
 }
 
 export function PuzzleCard({ puzzle, shelf, userId: _userId, onClick }: PuzzleCardProps) {
+  const [confirming, setConfirming] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
   const cells = Object.values(puzzle.cells ?? {})
   const totalFilled = cells.filter(c => c.value && !c.given).length
 
@@ -30,16 +35,32 @@ export function PuzzleCard({ puzzle, shelf, userId: _userId, onClick }: PuzzleCa
     ? 'var(--color-text-muted)'
     : 'var(--color-accent)'
 
+  async function handleDelete(e: React.MouseEvent) {
+    e.stopPropagation()
+    setDeleting(true)
+    try {
+      await deletePuzzle({ shelfId: shelf.id, puzzleId: puzzle.id })
+    } catch {
+      setDeleting(false)
+      setConfirming(false)
+    }
+    // No need to reset — the card disappears from Firestore onSnapshot
+  }
+
   return (
-    <button
-      onClick={onClick}
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={confirming ? undefined : onClick}
+      onKeyDown={e => { if (!confirming && (e.key === 'Enter' || e.key === ' ')) onClick() }}
       style={{
         display: 'block', width: '100%', textAlign: 'left',
-        padding: 16, cursor: 'pointer',
+        padding: 16, cursor: confirming ? 'default' : 'pointer',
         background: 'var(--color-surface)',
         border: '1px solid var(--color-border)',
         borderRadius: 12,
         transition: 'opacity 150ms',
+        position: 'relative',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
@@ -55,25 +76,67 @@ export function PuzzleCard({ puzzle, shelf, userId: _userId, onClick }: PuzzleCa
           <span style={{ fontWeight: 700, fontSize: 15, display: 'block' }}>{puzzle.title}</span>
         </div>
 
-        {/* Status */}
+        {/* Status + actions */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: statusColor }}>
-            {puzzle.status === 'completed' ? '✓ Done' : puzzle.status === 'abandoned' ? 'Abandoned' : 'Active'}
-          </span>
-          {/* Present members */}
-          {presentMembers.length > 0 && (
-            <div style={{ display: 'flex', gap: 3 }}>
-              {presentMembers.map(([uid, m]) => (
-                <div key={uid} style={{
-                  width: 18, height: 18, borderRadius: '50%',
-                  background: m.color, fontSize: 9, fontWeight: 700,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: 'white',
-                }}>
-                  {m.displayName[0]}
-                </div>
-              ))}
+          {confirming ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={e => e.stopPropagation()}>
+              <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Remove?</span>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                style={{
+                  fontSize: 12, fontWeight: 700, padding: '3px 8px', borderRadius: 6, cursor: 'pointer',
+                  background: 'var(--color-incorrect)', color: '#fff', border: 'none',
+                  opacity: deleting ? 0.6 : 1,
+                }}
+              >
+                {deleting ? '…' : 'Remove'}
+              </button>
+              <button
+                onClick={e => { e.stopPropagation(); setConfirming(false) }}
+                style={{
+                  fontSize: 12, padding: '3px 8px', borderRadius: 6, cursor: 'pointer',
+                  background: 'var(--color-bg)', color: 'var(--color-text-muted)',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
+                Cancel
+              </button>
             </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: statusColor }}>
+                  {puzzle.status === 'completed' ? '✓ Done' : puzzle.status === 'abandoned' ? 'Abandoned' : 'Active'}
+                </span>
+                <button
+                  onClick={e => { e.stopPropagation(); setConfirming(true) }}
+                  title="Remove from shelf"
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px',
+                    color: 'var(--color-text-muted)', fontSize: 14, lineHeight: 1,
+                    borderRadius: 4, opacity: 0.6,
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+              {/* Present members */}
+              {presentMembers.length > 0 && (
+                <div style={{ display: 'flex', gap: 3 }}>
+                  {presentMembers.map(([uid, m]) => (
+                    <div key={uid} style={{
+                      width: 18, height: 18, borderRadius: '50%',
+                      background: m.color, fontSize: 9, fontWeight: 700,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: 'white',
+                    }}>
+                      {m.displayName[0]}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -108,6 +171,6 @@ export function PuzzleCard({ puzzle, shelf, userId: _userId, onClick }: PuzzleCa
           </div>
         </div>
       )}
-    </button>
+    </div>
   )
 }

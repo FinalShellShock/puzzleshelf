@@ -1,8 +1,15 @@
 """
 Puzzle Shelf — Firebase Cloud Functions (Python 3.12)
 """
+import base64
+import json
 import random
+from collections import deque
 from datetime import datetime
+from typing import List
+
+import requests
+from bs4 import BeautifulSoup, Tag
 
 import firebase_admin
 from firebase_admin import firestore
@@ -14,7 +21,8 @@ firebase_admin.initialize_app()
 def get_db():
     return firestore.client()
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+
+# ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _shelf_member_check(shelf_id: str, uid: str) -> dict:
     """Raises if user is not a member of the shelf. Returns shelf data."""
@@ -28,12 +36,286 @@ def _shelf_member_check(shelf_id: str, uid: str) -> dict:
     return data
 
 
+# ── AmuseLabs / LA Times fetch ─────────────────────────────────────────────────
+#
+# LA Times crosswords are served via AmuseLabs (PuzzleMe platform).
+# Puzzle IDs follow the pattern tca{YYMMDD}, e.g. tca260325 for March 25 2026.
+#
+# Deobfuscation logic adapted from:
+#   xword-dl     https://github.com/thisisparker/xword-dl  (MIT)
+#   kotwords     https://github.com/jpd236/kotwords        (Apache 2.0)
+
+_LAT_PICKER_URL = "https://lat.amuselabs.com/lat/date-picker?set=latimes"
+_LAT_PUZZLE_URL = "https://lat.amuselabs.com/lat/crossword?id={puzzle_id}&set=latimes"
+_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; PuzzleShelf/1.0)"}
+
+
+def _get_load_token(picker_source: str):
+    """Extract loadToken from the AmuseLabs date-picker page."""
+    rawsps = None
+    if "pickerParams.rawsps" in picker_source:
+        for line in picker_source.splitlines():
+            if "pickerParams.rawsps" in line:
+                parts = line.strip().split("'")
+                rawsps = parts[1] if len(parts) > 1 else None
+                break
+    else:
+        soup = BeautifulSoup(picker_source, "html.parser")
+        param_tag = soup.find("script", id="params")
+        if isinstance(param_tag, Tag):
+            rawsps = json.loads(param_tag.string or "").get("rawsps")
+
+    if rawsps:
+        picker_params = json.loads(base64.b64decode(rawsps).decode("utf-8"))
+        return picker_params.get("loadToken")
+    return None
+
+
+def _get_rawc(page_source: str) -> str:
+    """Extract the obfuscated rawc blob from an AmuseLabs puzzle page."""
+    if "window.rawc" in page_source or "window.puzzleEnv.rawc" in page_source:
+        for line in page_source.splitlines():
+            if "window.rawc" in line or "window.puzzleEnv.rawc" in line:
+                parts = line.strip().split("'")
+                return parts[1] if len(parts) > 1 else ""
+    soup = BeautifulSoup(page_source, "html.parser")
+    script_tag = soup.find("script", id="params")
+    if isinstance(script_tag, Tag):
+        return json.loads(script_tag.string or "").get("rawc", "")
+    return ""
+
+
+def _is_valid_key_prefix(rawc: str, key_prefix: List[int], spacing: int) -> bool:
+    """BFS helper: validate that a key prefix produces valid UTF-8 Base64 chunks."""
+    try:
+        pos = 0
+        chunk: list = []
+        while pos < len(rawc):
+            start_pos = pos
+            key_index = 0
+            while key_index < len(key_prefix) and pos < len(rawc):
+                chunk_length = min(key_prefix[key_index], len(rawc) - pos)
+                chunk.append(rawc[pos:pos + chunk_length][::-1])
+                pos += chunk_length
+                key_index += 1
+            chunk_str = "".join(chunk)
+            base64_start = ((start_pos + 3) // 4) * 4 - start_pos
+            base64_end = (pos // 4) * 4 - start_pos
+            if base64_start >= len(chunk_str) or base64_end <= base64_start:
+                chunk.clear()
+                pos += spacing
+                continue
+            b64_chunk = chunk_str[base64_start:base64_end]
+            try:
+                decoded = base64.b64decode(b64_chunk)
+            except Exception:
+                return False
+            for byte in decoded:
+                byte_val = byte if isinstance(byte, int) else ord(byte)
+                if (
+                    (byte_val < 32 and byte_val not in (0x09, 0x0A, 0x0D))
+                    or byte_val == 0xC0
+                    or byte_val == 0xC1
+                    or byte_val >= 0xF5
+                ):
+                    return False
+            pos += spacing
+            chunk.clear()
+        return True
+    except Exception:
+        return False
+
+
+def _deobfuscate_rawc_with_key(rawc: str, key: List[int]) -> str:
+    """Apply a known 7-digit key to deobfuscate rawc."""
+    try:
+        buffer = list(rawc)
+        i = 0
+        segment_count = 0
+        while i < len(buffer) - 1:
+            segment_length = min(key[segment_count % len(key)], len(buffer) - i)
+            segment_count += 1
+            left, right = i, i + segment_length - 1
+            while left < right:
+                buffer[left], buffer[right] = buffer[right], buffer[left]
+                left += 1
+                right -= 1
+            i += segment_length
+        return base64.b64decode("".join(buffer)).decode("utf-8")
+    except Exception:
+        return ""
+
+
+def _deobfuscate_rawc(rawc: str) -> str:
+    """
+    Brute-force BFS to find the 7-digit deobfuscation key for AmuseLabs rawc.
+    Each digit is in range [2, 18]. Uses a heuristic first digit from reversed
+    Base64 markers for JSON start characters.
+    """
+    ye_pos = rawc.find("ye")
+    we_pos = rawc.find("we")
+    ye_pos = ye_pos if ye_pos != -1 else len(rawc)
+    we_pos = we_pos if we_pos != -1 else len(rawc)
+    first_key_digit = min(ye_pos, we_pos) + 2
+
+    candidate_queue: deque = deque([[]] if first_key_digit > 18 else [[first_key_digit]])
+
+    while candidate_queue:
+        candidate_key_prefix = candidate_queue.popleft()
+        if len(candidate_key_prefix) == 7:
+            deobfuscated = _deobfuscate_rawc_with_key(rawc, candidate_key_prefix)
+            try:
+                json.loads(deobfuscated)
+                return deobfuscated
+            except (json.JSONDecodeError, ValueError):
+                continue
+        for next_digit in range(2, 19):
+            new_candidate = candidate_key_prefix + [next_digit]
+            remaining_digits = 7 - len(new_candidate)
+            min_spacing = 2 * remaining_digits
+            max_spacing = 18 * remaining_digits
+            if any(
+                _is_valid_key_prefix(rawc, new_candidate, spacing)
+                for spacing in range(min_spacing, max_spacing + 1)
+            ):
+                candidate_queue.append(new_candidate)
+    return "{}"
+
+
+def _fetch_lat_xword_data(date_str: str) -> dict:
+    """
+    Fetch raw LA Times puzzle JSON from AmuseLabs for the given date (YYYY-MM-DD).
+    """
+    date = datetime.strptime(date_str, "%Y-%m-%d")
+    puzzle_id = "tca" + date.strftime("%y%m%d")  # 2-digit year: tca260325
+
+    # Fetch the date-picker to get the loadToken
+    picker_res = requests.get(_LAT_PICKER_URL, headers=_HEADERS, timeout=30)
+    if not picker_res.ok:
+        raise Exception(f"Could not reach AmuseLabs picker: HTTP {picker_res.status_code}")
+    token = _get_load_token(picker_res.text)
+
+    # Build puzzle URL (append token if available)
+    puzzle_url = _LAT_PUZZLE_URL.format(puzzle_id=puzzle_id)
+    if token:
+        puzzle_url += f"&loadToken={token}"
+
+    # Fetch the puzzle page
+    puzzle_res = requests.get(puzzle_url, headers=_HEADERS, timeout=30)
+    not_found_msg = "The puzzle you are trying to access was not found"
+    if not puzzle_res.ok or not_found_msg in puzzle_res.text:
+        raise Exception(f"Puzzle not found for {date_str} (id={puzzle_id})")
+
+    # Extract rawc and deobfuscate
+    rawc = _get_rawc(puzzle_res.text)
+    if not rawc:
+        raise Exception("Could not find rawc blob in puzzle page")
+
+    xword_data = json.loads(_deobfuscate_rawc(rawc))
+    if not xword_data:
+        raise Exception("rawc deobfuscation produced empty result")
+
+    return xword_data
+
+
+def _parse_lat_xword_data(xword_data: dict, date: datetime) -> tuple:
+    """
+    Convert AmuseLabs xword_data JSON into Firestore-ready structures.
+
+    Returns:
+        solution_grid  — list of rows, each a list of single chars ('' for black)
+        grid_meta      — {r{row}c{col}: {isBlack, number?, acrossWord?, downWord?}}
+        across_clues   — {str(num): clue_text}
+        down_clues     — {str(num): clue_text}
+        title          — puzzle title string
+        width, height  — grid dimensions
+    """
+    w: int = xword_data["w"]
+    h: int = xword_data["h"]
+    box: list = xword_data["box"]  # box[col][row] — column-major!
+
+    # Build row-major solution grid and initial grid_meta
+    solution_grid = []
+    grid_meta: dict = {}
+    for row in range(h):
+        solution_row = []
+        for col in range(w):
+            cell = box[col][row]
+            key = f"r{row}c{col}"
+            if cell == "\x00":
+                solution_row.append("")
+                grid_meta[key] = {"isBlack": True}
+            else:
+                # Use first character; multi-char = rebus (take first letter)
+                letter = cell[0] if cell else "X"
+                solution_row.append(letter)
+                grid_meta[key] = {"isBlack": False}
+        solution_grid.append(solution_row)
+
+    def is_black(r: int, c: int) -> bool:
+        if r < 0 or r >= h or c < 0 or c >= w:
+            return True  # out of bounds treated as black
+        return grid_meta[f"r{r}c{c}"].get("isBlack", False)
+
+    # Assign clue numbers: standard crossword row-major scan
+    cell_numbers: dict = {}
+    num = 1
+    for row in range(h):
+        for col in range(w):
+            if is_black(row, col):
+                continue
+            starts_across = is_black(row, col - 1) and not is_black(row, col + 1)
+            starts_down = is_black(row - 1, col) and not is_black(row + 1, col)
+            if starts_across or starts_down:
+                cell_numbers[(row, col)] = num
+                grid_meta[f"r{row}c{col}"]["number"] = num
+                num += 1
+
+    # Assign word IDs to every cell in each word
+    for (row, col), n in cell_numbers.items():
+        starts_across = is_black(row, col - 1) and not is_black(row, col + 1)
+        starts_down = is_black(row - 1, col) and not is_black(row + 1, col)
+
+        if starts_across:
+            word_id = f"{n}A"
+            c = col
+            while not is_black(row, c):
+                grid_meta[f"r{row}c{c}"]["acrossWord"] = word_id
+                c += 1
+
+        if starts_down:
+            word_id = f"{n}D"
+            r = row
+            while not is_black(r, col):
+                grid_meta[f"r{r}c{col}"]["downWord"] = word_id
+                r += 1
+
+    # Build clue maps from placedWords (x=col, y=row in AmuseLabs coords)
+    across_clues: dict = {}
+    down_clues: dict = {}
+    for word in xword_data.get("placedWords", []):
+        row, col = word["y"], word["x"]
+        n = cell_numbers.get((row, col))
+        if n is None:
+            continue
+        clue_text = word.get("clue", {}).get("clue", "")
+        if word["acrossNotDown"]:
+            across_clues[str(n)] = clue_text
+        else:
+            down_clues[str(n)] = clue_text
+
+    title = (xword_data.get("title") or "").strip() or \
+        f"LA Times — {date.strftime('%a, %b %-d')}"
+
+    return solution_grid, grid_meta, across_clues, down_clues, title, w, h
+
+
 # ── fetchCrossword ─────────────────────────────────────────────────────────────
 
 @https_fn.on_call(region="us-central1", memory=options.MemoryOption.GB_1)
 def fetch_crossword(req: https_fn.CallableRequest) -> dict:
     """
-    Fetch an LA Times crossword for a given date via xword-dl.
+    Fetch an LA Times crossword for a given date directly from AmuseLabs.
     Returns the puzzleId (creates new or returns existing cached puzzle).
     """
     uid = req.auth.uid if req.auth else None
@@ -41,95 +323,37 @@ def fetch_crossword(req: https_fn.CallableRequest) -> dict:
         raise https_fn.HttpsError("unauthenticated", "Must be authenticated")
 
     shelf_id = req.data.get("shelfId")
-    date_str = req.data.get("date")  # e.g. "2026-03-25"
+    date_str = req.data.get("date")  # YYYY-MM-DD
     if not shelf_id or not date_str:
         raise https_fn.HttpsError("invalid-argument", "shelfId and date required")
 
     _shelf_member_check(shelf_id, uid)
 
-    # Parse date
     try:
         date = datetime.strptime(date_str, "%Y-%m-%d")
     except ValueError:
         raise https_fn.HttpsError("invalid-argument", f"Invalid date format: {date_str}")
 
-    # Check cache: has this puzzle been fetched before?
+    # Check cache: any non-deleted crossword for this date on this shelf
     puzzles_ref = get_db().collection("shelves").document(shelf_id).collection("puzzles")
-    existing = puzzles_ref.where("source", "==", "latimes").where("sourceDate", "==", date_str).get()
-    if existing:
-        return {"puzzleId": existing[0].id}
+    existing = puzzles_ref.where("type", "==", "crossword").where("sourceDate", "==", date_str).get()
+    non_deleted = [d for d in existing if d.to_dict().get("status") != "deleted"]
+    if non_deleted:
+        return {"puzzleId": non_deleted[0].id}
 
-    # Fetch via xword-dl Python API
-    import xword_dl
-    date_fmt = date.strftime("%B %-d, %Y")  # "March 25, 2026"
+    # Fetch and parse puzzle data directly from AmuseLabs
     try:
-        result = xword_dl.by_keyword("lat", date=date_fmt)
-        p = result[0]  # puz.Puzzle object
+        xword_data = _fetch_lat_xword_data(date_str)
     except Exception as e:
         raise https_fn.HttpsError("not-found", f"No crossword available for {date_str}: {e}")
 
-    grid_width = p.width
-    grid_height = p.height
-    solution_grid = []
-    cells_map = {}
-    grid_meta = {}
-    numbers = p.clue_numbering()
+    try:
+        solution_grid, grid_meta, across_clues, down_clues, puzzle_title, grid_width, grid_height = \
+            _parse_lat_xword_data(xword_data, date)
+    except Exception as e:
+        raise https_fn.HttpsError("internal", f"Failed to parse puzzle data: {e}")
 
-    # Build solution grid
-    for row in range(grid_height):
-        solution_row = []
-        for col in range(grid_width):
-            idx = row * grid_width + col
-            ch = p.solution[idx]
-            solution_row.append(ch if ch != "." else "")
-        solution_grid.append(solution_row)
-
-    # Build grid_meta (black cells, numbers)
-    for row in range(grid_height):
-        for col in range(grid_width):
-            idx = row * grid_width + col
-            ch = p.solution[idx]
-            key = f"r{row}c{col}"
-            if ch == ".":
-                grid_meta[key] = {"isBlack": True}
-            else:
-                grid_meta[key] = {"isBlack": False}
-
-    # Assign clue numbers and word IDs
-    across_clues = {}
-    down_clues = {}
-    for entry in numbers.across:
-        num = entry.num
-        col = entry.col
-        row = entry.row
-        word_id = f"{num}A"
-        across_clues[str(num)] = entry.clue
-        for i in range(entry.len):
-            key = f"r{row}c{col + i}"
-            if key in grid_meta:
-                grid_meta[key]["acrossWord"] = word_id
-                if i == 0:
-                    grid_meta[key]["number"] = num
-
-    for entry in numbers.down:
-        num = entry.num
-        col = entry.col
-        row = entry.row
-        word_id = f"{num}D"
-        down_clues[str(num)] = entry.clue
-        for i in range(entry.len):
-            key = f"r{row + i}c{col}"
-            if key in grid_meta:
-                grid_meta[key]["downWord"] = word_id
-                if "number" not in grid_meta[key] or grid_meta[key].get("number") != num:
-                    # Only set number if not already set by across
-                    if "acrossWord" not in grid_meta[key] or i == 0:
-                        grid_meta[key].setdefault("number", num)
-
-    # Title
-    puzzle_title = p.title or f"LA Times — {date.strftime('%a, %b %-d')}"
-
-    # Write puzzle document (no solution)
+    # Write puzzle document (solution excluded)
     puzzle_ref = puzzles_ref.document()
     puzzle_ref.set({
         "type": "crossword",
@@ -148,10 +372,10 @@ def fetch_crossword(req: https_fn.CallableRequest) -> dict:
             "down": down_clues,
         },
         "gridMeta": grid_meta,
-        "cells": cells_map,
+        "cells": {},
     })
 
-    # Write solution document (admin-only, client rules deny reads)
+    # Solution document — unreadable by clients (Firestore rules deny reads)
     solution_ref = puzzle_ref.collection("solution").document("data")
     solution_ref.set({"grid": solution_grid})
 
@@ -176,12 +400,9 @@ def generate_sudoku(req: https_fn.CallableRequest) -> dict:
 
     _shelf_member_check(shelf_id, uid)
 
-    # Number of givens per difficulty
     givens_count = {"easy": 36, "medium": 30, "hard": 25, "expert": 22}[difficulty]
-
     solution, givens = _generate_sudoku(givens_count)
 
-    # Build constraints map and cells map
     constraints = {}
     cells = {}
     for row in range(9):
@@ -219,20 +440,18 @@ def generate_sudoku(req: https_fn.CallableRequest) -> dict:
         "cells": cells,
     })
 
-    # Solution document
     solution_ref = puzzle_ref.collection("solution").document("data")
     solution_ref.set({"grid": [[str(solution[r][c]) for c in range(9)] for r in range(9)]})
 
     return {"puzzleId": puzzle_ref.id}
 
 
-def _generate_sudoku(n_givens: int) -> tuple[list, list]:
+def _generate_sudoku(n_givens: int) -> tuple:
     """Generate a valid sudoku grid and return (solution, givens_grid)."""
     grid = [[0] * 9 for _ in range(9)]
     _fill_grid(grid)
     solution = [row[:] for row in grid]
 
-    # Remove cells to reach desired givens count
     cells = [(r, c) for r in range(9) for c in range(9)]
     random.shuffle(cells)
     removed = 0
@@ -241,9 +460,7 @@ def _generate_sudoku(n_givens: int) -> tuple[list, list]:
     for (r, c) in cells:
         if removed >= target_remove:
             break
-        backup = grid[r][c]
         grid[r][c] = 0
-        # Verify unique solution (simplified: just proceed, full backtrack check is expensive)
         removed += 1
 
     return solution, grid
@@ -318,7 +535,6 @@ def check_puzzle(req: https_fn.CallableRequest) -> dict:
     cells = puzzle_data.get("cells", {})
     grid_meta = puzzle_data.get("gridMeta", {})
 
-    # Determine which cells to check
     if scope == "cell" and cell_key:
         keys_to_check = [cell_key]
     elif scope == "word" and word_id:
@@ -347,14 +563,12 @@ def check_puzzle(req: https_fn.CallableRequest) -> dict:
     if updates:
         puzzle_ref.update(updates)
 
-    # Check if puzzle is now complete
+    # Check for puzzle completion
     puzzle_snap2 = puzzle_ref.get()
     puzzle_data2 = puzzle_snap2.to_dict()
     all_cells = puzzle_data2.get("cells", {})
-
-    # For crossword: all non-black cells filled and correct
-    # For sudoku: all 81 cells have values and correct
     puzzle_type = puzzle_data2.get("type")
+
     if puzzle_type == "crossword":
         non_black = [k for k, meta in grid_meta.items() if not meta.get("isBlack")]
         all_correct = all(
@@ -439,3 +653,40 @@ def reveal_cells(req: https_fn.CallableRequest) -> dict:
         puzzle_ref.update(updates)
 
     return {"updated": len(updates)}
+
+
+# ── deletePuzzle ───────────────────────────────────────────────────────────────
+
+@https_fn.on_call(region="us-central1")
+def delete_puzzle(req: https_fn.CallableRequest) -> dict:
+    """
+    Soft-delete a puzzle by setting status='deleted'.
+    Deleted puzzles are excluded from the shelf view and all stats.
+    """
+    uid = req.auth.uid if req.auth else None
+    if not uid:
+        raise https_fn.HttpsError("unauthenticated", "Must be authenticated")
+
+    shelf_id = req.data.get("shelfId")
+    puzzle_id = req.data.get("puzzleId")
+    if not shelf_id or not puzzle_id:
+        raise https_fn.HttpsError("invalid-argument", "shelfId and puzzleId required")
+
+    _shelf_member_check(shelf_id, uid)
+
+    puzzle_ref = (
+        get_db()
+        .collection("shelves").document(shelf_id)
+        .collection("puzzles").document(puzzle_id)
+    )
+    snap = puzzle_ref.get()
+    if not snap.exists:
+        raise https_fn.HttpsError("not-found", "Puzzle not found")
+
+    puzzle_ref.update({
+        "status": "deleted",
+        "deletedAt": SERVER_TIMESTAMP,
+        "deletedBy": uid,
+    })
+
+    return {"success": True}
