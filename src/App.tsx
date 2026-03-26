@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthGuard } from './components/auth/AuthGuard'
 import { LoginPage } from './components/auth/LoginPage'
@@ -8,16 +8,12 @@ import { ShelfView } from './components/shelf/ShelfView'
 import { PuzzleView } from './components/library/PuzzleView'
 
 export default function App() {
-  const [dark, setDark] = useState(() => {
-    const saved = localStorage.getItem('theme')
-    if (saved) return saved === 'dark'
-    return window.matchMedia('(prefers-color-scheme: dark)').matches
-  })
-
+  // Initialize theme from localStorage / system preference on mount
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', dark)
-    localStorage.setItem('theme', dark ? 'dark' : 'light')
-  }, [dark])
+    const saved = localStorage.getItem('theme')
+    const prefersDark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches
+    document.documentElement.classList.toggle('dark', prefersDark)
+  }, [])
 
   return (
     <BrowserRouter>
