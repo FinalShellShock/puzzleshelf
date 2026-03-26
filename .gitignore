@@ -14,3 +14,4 @@ ui-debug.log
 functions/__pycache__/
 functions/*.pyc
 functions/.venv/
+functions/venv/
