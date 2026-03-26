@@ -5,9 +5,9 @@ Git & Pushing
 - Working branch: kelly/ui
 - Always cd into /Users/kelly/puzzleshelf before running any git commands
 - After completing any update, push to the branch automatically — do not ask Kelly to do it
-- After pushing, fetch the Vercel preview URL by polling the GitHub Deployments API:
-  curl -s https://api.github.com/repos/FinalShellShock/puzzleshelf/deployments?ref=kelly/ui
-  Then get the deployment status URL and follow it to find the environment_url (the Vercel preview link)
+- After pushing, fetch the Vercel preview URL using the GitHub commit statuses API:
+  curl -s "https://api.github.com/repos/FinalShellShock/puzzleshelf/commits/kelly/ui/statuses" | grep target_url | head -1
+  The preview app URL follows the pattern: https://puzzleshelf-git-kelly-ui-johnnychadwick-4329s-projects.vercel.app
 - Always give Kelly the preview URL when done
 
 Testing
