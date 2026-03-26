@@ -4,12 +4,13 @@ import { FORMER_MEMBER_COLOR } from '../../utils/colors'
 interface Props {
   shelf: Shelf
   puzzles: Puzzle[]
+  memberNames?: Record<string, string>
 }
 
-export function ShelfStats({ shelf, puzzles }: Props) {
+export function ShelfStats({ shelf, puzzles, memberNames = {} }: Props) {
   const members = [
-    ...Object.entries(shelf.members).map(([uid, m]) => ({ uid, displayName: m.displayName, color: m.color, isFormer: false })),
-    ...Object.entries(shelf.formerMembers ?? {}).map(([uid, m]) => ({ uid, displayName: m.displayName, color: FORMER_MEMBER_COLOR, isFormer: true })),
+    ...Object.entries(shelf.members).map(([uid, m]) => ({ uid, displayName: memberNames[uid] ?? m.displayName, color: m.color, isFormer: false })),
+    ...Object.entries(shelf.formerMembers ?? {}).map(([uid, m]) => ({ uid, displayName: memberNames[uid] ?? m.displayName, color: FORMER_MEMBER_COLOR, isFormer: true })),
   ]
   const completed = puzzles.filter(p => p.status === 'completed')
   const completionRate = puzzles.length > 0 ? Math.round((completed.length / puzzles.length) * 100) : 0

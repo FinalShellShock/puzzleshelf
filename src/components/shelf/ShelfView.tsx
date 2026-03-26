@@ -237,7 +237,7 @@ export function ShelfView() {
         )}
 
         {tab === 'stats' && (
-          <ShelfStats shelf={shelf} puzzles={puzzles} />
+          <ShelfStats shelf={shelf} puzzles={puzzles} memberNames={memberNames} />
         )}
       </div>
 
