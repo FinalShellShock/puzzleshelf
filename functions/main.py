@@ -393,7 +393,7 @@ def fetch_crossword(req: https_fn.CallableRequest) -> dict:
 
         # Solution document — unreadable by clients (Firestore rules deny reads)
         solution_ref = puzzle_ref.collection("solution").document("data")
-        solution_ref.set({"grid": solution_grid})
+        solution_ref.set({"grid": json.dumps(solution_grid)})
     except Exception as e:
         raise https_fn.HttpsError("internal", f"Failed to write puzzle to Firestore: {e}")
 
@@ -459,7 +459,7 @@ def generate_sudoku(req: https_fn.CallableRequest) -> dict:
     })
 
     solution_ref = puzzle_ref.collection("solution").document("data")
-    solution_ref.set({"grid": [[str(solution[r][c]) for c in range(9)] for r in range(9)]})
+    solution_ref.set({"grid": json.dumps([[str(solution[r][c]) for c in range(9)] for r in range(9)])})
 
     return {"puzzleId": puzzle_ref.id}
 
@@ -549,7 +549,7 @@ def check_puzzle(req: https_fn.CallableRequest) -> dict:
 
     puzzle_data = puzzle_snap.to_dict()
     solution_data = solution_snap.to_dict()
-    solution_grid = solution_data["grid"]
+    solution_grid = json.loads(solution_data["grid"])
     cells = puzzle_data.get("cells", {})
     grid_meta = puzzle_data.get("gridMeta", {})
 
@@ -639,7 +639,7 @@ def reveal_cells(req: https_fn.CallableRequest) -> dict:
 
     puzzle_data = puzzle_snap.to_dict()
     solution_data = solution_snap.to_dict()
-    solution_grid = solution_data["grid"]
+    solution_grid = json.loads(solution_data["grid"])
     grid_meta = puzzle_data.get("gridMeta", {})
 
     if scope == "cell" and cell_key:
