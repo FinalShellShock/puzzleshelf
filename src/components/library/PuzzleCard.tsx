@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { deletePuzzle } from '../../lib/functions'
 import type { Puzzle, Shelf } from '../../types'
 import { FORMER_MEMBER_COLOR } from '../../utils/colors'
+import { useMemberNames } from '../../hooks/useMemberNames'
 
 interface PuzzleCardProps {
   puzzle: Puzzle
@@ -13,14 +14,15 @@ interface PuzzleCardProps {
 export function PuzzleCard({ puzzle, shelf, userId: _userId, onClick }: PuzzleCardProps) {
   const [confirming, setConfirming] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const memberNames = useMemberNames(shelf)
 
   const cells = Object.values(puzzle.cells ?? {})
   const totalFilled = cells.filter(c => c.value && !c.given).length
 
   // Contribution bars — include former members so progress bar stays accurate
   const allContributors = [
-    ...Object.entries(shelf.members).map(([uid, m]) => ({ uid, color: m.color, name: m.displayName })),
-    ...Object.entries(shelf.formerMembers ?? {}).map(([uid, m]) => ({ uid, color: FORMER_MEMBER_COLOR, name: m.displayName })),
+    ...Object.entries(shelf.members).map(([uid, m]) => ({ uid, color: m.color, name: memberNames[uid] ?? m.displayName })),
+    ...Object.entries(shelf.formerMembers ?? {}).map(([uid, m]) => ({ uid, color: FORMER_MEMBER_COLOR, name: memberNames[uid] ?? m.displayName })),
   ]
   const contributions = allContributors.map(({ uid, color, name }) => ({
     uid, color, name,
@@ -133,7 +135,7 @@ export function PuzzleCard({ puzzle, shelf, userId: _userId, onClick }: PuzzleCa
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       color: 'white',
                     }}>
-                      {m.displayName[0]}
+                      {(memberNames[uid] ?? m.displayName)[0]}
                     </div>
                   ))}
                 </div>

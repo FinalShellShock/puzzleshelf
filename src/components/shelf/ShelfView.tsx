@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp, deleteField, getDoc } from 'firebase/firestore'
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp, deleteField } from 'firebase/firestore'
 import { useParams, useNavigate } from 'react-router-dom'
 import { db } from '../../lib/firebase'
 import { useAuth } from '../../hooks/useAuth'
 import { useShelf } from '../../hooks/useShelf'
+import { useMemberNames } from '../../hooks/useMemberNames'
 import { PuzzleCard } from '../library/PuzzleCard'
 import { AddPuzzleModal } from '../library/AddPuzzleModal'
 import { ChatPanel } from '../chat/ChatPanel'
@@ -28,7 +29,7 @@ export function ShelfView() {
   const [confirmLeave, setConfirmLeave] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [tab, setTab] = useState<Tab>('puzzles')
-  const [memberNames, setMemberNames] = useState<Record<string, string>>({})
+  const memberNames = useMemberNames(shelf)
 
   // Subscribe to puzzles
   useEffect(() => {
@@ -40,21 +41,6 @@ export function ShelfView() {
       setPuzzlesLoading(false)
     })
   }, [shelfId])
-
-  // Fetch authoritative display names from /users/{uid} for all members
-  useEffect(() => {
-    if (!shelf) return
-    const uids = Object.keys(shelf.members)
-    Promise.all(
-      uids.map(uid =>
-        getDoc(doc(db, 'users', uid)).then(snap => ({ uid, name: snap.data()?.displayName as string | undefined }))
-      )
-    ).then(results => {
-      const names: Record<string, string> = {}
-      results.forEach(({ uid, name }) => { if (name) names[uid] = name })
-      setMemberNames(names)
-    }).catch(() => {})
-  }, [shelf?.id]) // Only re-fetch when the shelf itself changes, not on every real-time update
 
   // Update presence: currentPuzzle = null when on shelf view; also refresh displayName in case it was stored incorrectly
   useEffect(() => {
@@ -282,14 +268,17 @@ export function ShelfView() {
               <>
                 <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)' }}>Former members</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
-                  {Object.entries(shelf.formerMembers!).map(([uid, m]) => (
-                    <div key={uid} style={{ display: 'flex', alignItems: 'center', gap: 10, opacity: 0.6 }}>
-                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#A0989033', border: '2px solid #A09890', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#A09890', flexShrink: 0 }}>
-                        {m.displayName[0].toUpperCase()}
+                  {Object.entries(shelf.formerMembers!).map(([uid, m]) => {
+                    const name = memberNames[uid] ?? m.displayName
+                    return (
+                      <div key={uid} style={{ display: 'flex', alignItems: 'center', gap: 10, opacity: 0.6 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#A0989033', border: '2px solid #A09890', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#A09890', flexShrink: 0 }}>
+                          {name[0].toUpperCase()}
+                        </div>
+                        <span style={{ fontSize: 15, color: 'var(--color-text-muted)' }}>{name}</span>
                       </div>
-                      <span style={{ fontSize: 15, color: 'var(--color-text-muted)' }}>{m.displayName}</span>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </>
             )}

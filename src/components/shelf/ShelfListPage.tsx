@@ -4,6 +4,7 @@ import { signOut } from 'firebase/auth'
 import { useNavigate } from 'react-router-dom'
 import { db, auth } from '../../lib/firebase'
 import { useAuth } from '../../hooks/useAuth'
+import { useMemberNames } from '../../hooks/useMemberNames'
 import { USER_COLORS, getAvailableColors } from '../../utils/colors'
 import { Modal } from '../ui/Modal'
 import { Spinner } from '../ui/Spinner'
@@ -98,6 +99,7 @@ export function ShelfListPage() {
 function ShelfCard({ shelf, userId, onClick }: { shelf: Shelf; userId: string; onClick: () => void }) {
   const memberList = Object.entries(shelf.members)
   const myMember = shelf.members[userId]
+  const memberNames = useMemberNames(shelf)
 
   return (
     <button
@@ -125,7 +127,7 @@ function ShelfCard({ shelf, userId, onClick }: { shelf: Shelf; userId: string; o
             fontSize: 12, padding: '2px 8px', borderRadius: 20,
             background: m.color + '22', color: m.color, fontWeight: 600,
           }}>
-            {m.displayName}
+            {memberNames[uid] ?? m.displayName}
           </span>
         ))}
       </div>
