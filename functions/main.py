@@ -2,10 +2,6 @@
 Puzzle Shelf — Firebase Cloud Functions (Python 3.12)
 """
 import random
-import string
-import subprocess
-import tempfile
-import os
 from datetime import datetime
 
 import firebase_admin
@@ -14,13 +10,15 @@ from firebase_functions import https_fn, options
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 
 firebase_admin.initialize_app()
-db = firestore.client()
+
+def get_db():
+    return firestore.client()
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _shelf_member_check(shelf_id: str, uid: str) -> dict:
     """Raises if user is not a member of the shelf. Returns shelf data."""
-    ref = db.collection("shelves").document(shelf_id)
+    ref = get_db().collection("shelves").document(shelf_id)
     snap = ref.get()
     if not snap.exists:
         raise https_fn.HttpsError("not-found", "Shelf not found")
@@ -56,25 +54,19 @@ def fetch_crossword(req: https_fn.CallableRequest) -> dict:
         raise https_fn.HttpsError("invalid-argument", f"Invalid date format: {date_str}")
 
     # Check cache: has this puzzle been fetched before?
-    puzzles_ref = db.collection("shelves").document(shelf_id).collection("puzzles")
+    puzzles_ref = get_db().collection("shelves").document(shelf_id).collection("puzzles")
     existing = puzzles_ref.where("source", "==", "latimes").where("sourceDate", "==", date_str).get()
     if existing:
         return {"puzzleId": existing[0].id}
 
-    # Fetch via xword-dl
+    # Fetch via xword-dl Python API
+    import xword_dl
     date_fmt = date.strftime("%B %-d, %Y")  # "March 25, 2026"
-    with tempfile.TemporaryDirectory() as tmpdir:
-        puz_path = os.path.join(tmpdir, "puzzle.puz")
-        result = subprocess.run(
-            ["xword-dl", "lat", "--date", date_fmt, "-o", puz_path],
-            capture_output=True, text=True, timeout=30
-        )
-        if result.returncode != 0:
-            raise https_fn.HttpsError("not-found", f"No crossword available for {date_str}")
-
-        # Parse the .puz file
-        import puz
-        p = puz.read(puz_path)
+    try:
+        result = xword_dl.by_keyword("lat", date=date_fmt)
+        p = result[0]  # puz.Puzzle object
+    except Exception as e:
+        raise https_fn.HttpsError("not-found", f"No crossword available for {date_str}: {e}")
 
     grid_width = p.width
     grid_height = p.height
@@ -209,7 +201,7 @@ def generate_sudoku(req: https_fn.CallableRequest) -> dict:
     today = date_cls.today().strftime("%a, %b %-d")
     title = f"Sudoku — {difficulty.capitalize()} — {today}"
 
-    puzzles_ref = db.collection("shelves").document(shelf_id).collection("puzzles")
+    puzzles_ref = get_db().collection("shelves").document(shelf_id).collection("puzzles")
     puzzle_ref = puzzles_ref.document()
     puzzle_ref.set({
         "type": "sudoku",
@@ -311,7 +303,7 @@ def check_puzzle(req: https_fn.CallableRequest) -> dict:
 
     _shelf_member_check(shelf_id, uid)
 
-    puzzle_ref = db.collection("shelves").document(shelf_id).collection("puzzles").document(puzzle_id)
+    puzzle_ref = get_db().collection("shelves").document(shelf_id).collection("puzzles").document(puzzle_id)
     puzzle_snap = puzzle_ref.get()
     if not puzzle_snap.exists:
         raise https_fn.HttpsError("not-found", "Puzzle not found")
@@ -404,7 +396,7 @@ def reveal_cells(req: https_fn.CallableRequest) -> dict:
 
     _shelf_member_check(shelf_id, uid)
 
-    puzzle_ref = db.collection("shelves").document(shelf_id).collection("puzzles").document(puzzle_id)
+    puzzle_ref = get_db().collection("shelves").document(shelf_id).collection("puzzles").document(puzzle_id)
     puzzle_snap = puzzle_ref.get()
     if not puzzle_snap.exists:
         raise https_fn.HttpsError("not-found", "Puzzle not found")

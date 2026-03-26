@@ -174,7 +174,7 @@ export function ShelfView() {
           shelfId={shelfId}
           userId={user!.uid}
           onClose={() => setShowAddPuzzle(false)}
-          onAdded={puzzleId => navigate(`/shelf/${shelfId}/puzzle/${puzzleId}`)}
+          onAdded={puzzleId => { setShowAddPuzzle(false); navigate(`/shelf/${shelfId}/puzzle/${puzzleId}`) }}
         />
       )}
     </div>
