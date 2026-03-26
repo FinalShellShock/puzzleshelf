@@ -1,4 +1,24 @@
 ---
+Developer Workflow (Kelly's Setup)
+
+Git & Pushing
+- Working branch: kelly/ui
+- Always cd into /Users/kelly/puzzleshelf before running any git commands
+- After completing any update, push to the branch automatically — do not ask Kelly to do it
+- After pushing, fetch the Vercel preview URL by polling the GitHub Deployments API:
+  curl -s https://api.github.com/repos/FinalShellShock/puzzleshelf/deployments?ref=kelly/ui
+  Then get the deployment status URL and follow it to find the environment_url (the Vercel preview link)
+- Always give Kelly the preview URL when done
+
+Testing
+- Do NOT use local dev server previews — the app uses Vercel and Firestore and does not work correctly in local previews
+- Use the Chrome MCP tool (Claude in Chrome) for all visual testing and verification
+
+Instructions for Kelly
+- If something requires terminal commands, run them directly — do not tell Kelly to run them
+- If something requires manual steps in a browser or UI (e.g. GitHub, Vercel dashboard), give click-by-click instructions
+
+---
 Puzzle Shelf — Product Spec
 Overview
 Puzzle Shelf is a collaborative puzzle app where users share a persistent "Shelf" — a shared puzzle library where members can browse, solve, and track progress on puzzles together in real time. Think of it like a Google Doc for puzzles: you're always connected, you can see what others are working on, and you can jump in or out of any puzzle at any time.
