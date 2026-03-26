@@ -13,7 +13,7 @@ from typing import List
 import firebase_admin
 from firebase_admin import firestore
 from firebase_functions import https_fn, options
-from google.cloud.firestore_v1 import SERVER_TIMESTAMP
+from google.cloud.firestore import SERVER_TIMESTAMP
 
 firebase_admin.initialize_app()
 
