@@ -21,15 +21,17 @@
 
 .dark {
   --color-bg:           #1C1612;
-  --color-surface:      #2A211A;
-  --color-border:       #4A3D30;
-  --color-text:         #E8E0D4;
-  --color-text-muted:   #9B8B78;
-  --color-accent:       #B89B7A;
+  --color-surface:      #332618;   /* lighter cells — clearly distinct from bg */
+  --color-border:       #5C4A38;   /* more visible borders */
+  --color-text:         #EDE5D8;
+  --color-text-muted:   #A0907C;
+  --color-accent:       #C4A882;   /* warmer, brighter accent */
 
-  --color-correct:      #4E8A5E;
-  --color-incorrect:    #9E5555;
-  --color-revealed:     #736D64;
+  --color-correct:      #5A9E6A;
+  --color-incorrect:    #B06060;
+  --color-revealed:     #857E74;
+
+  --cell-border:        1px solid #5C4A38;  /* thicker border in dark mode */
 }
 
 /* ── Base ────────────────────────────────────────────────────────────────── */
@@ -137,6 +139,12 @@ body {
   cursor: default;
 }
 
+/* Dark mode: black cells must be darker than the cell surface */
+.dark .puzzle-cell.black {
+  background-color: #110D09;
+  border-color: #110D09;
+}
+
 .puzzle-cell.selected {
   background-color: color-mix(in srgb, var(--color-accent) 20%, var(--color-surface));
 }
@@ -155,6 +163,15 @@ body {
 
 .puzzle-cell.revealed {
   background-color: color-mix(in srgb, var(--color-revealed) 20%, var(--color-surface));
+}
+
+/* Dark mode: stronger word/cell highlights for visibility */
+.dark .puzzle-cell.selected {
+  background-color: color-mix(in srgb, var(--color-accent) 38%, var(--color-surface));
+}
+
+.dark .puzzle-cell.in-word {
+  background-color: color-mix(in srgb, var(--color-accent) 20%, var(--color-surface));
 }
 
 .puzzle-cell.conflict {

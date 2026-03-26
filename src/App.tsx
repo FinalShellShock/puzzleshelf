@@ -21,23 +21,6 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      {/* Dark mode toggle — fixed in corner */}
-      <button
-        onClick={() => setDark(d => !d)}
-        title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
-        style={{
-          position: 'fixed', bottom: 16, right: 16, zIndex: 100,
-          width: 40, height: 40, borderRadius: '50%',
-          background: 'var(--color-surface)',
-          border: '1.5px solid var(--color-border)',
-          fontSize: 18, cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-        }}
-      >
-        {dark ? '☀️' : '🌙'}
-      </button>
-
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />

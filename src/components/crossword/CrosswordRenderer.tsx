@@ -1,10 +1,11 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 import { checkPuzzle, revealCells } from '../../lib/functions'
 import { CrosswordGrid } from './CrosswordGrid'
 import { ChatPanel } from '../chat/ChatPanel'
 import { Spinner } from '../ui/Spinner'
+import { useTheme } from '../../hooks/useTheme'
 import type { Puzzle, Shelf } from '../../types'
 
 interface Props {
@@ -26,6 +27,23 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
   // Tracks cursor position synchronously so rapid keystrokes don't all write to the same cell
   const cursorRef = useRef<string | null>(null)
   const directionRef = useRef<Direction>('across')
+  // Keyboard height — push nav bar above soft keyboard via Visual Viewport API
+  const [navBottom, setNavBottom] = useState(0)
+  const { dark, toggle: toggleTheme } = useTheme()
+
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    function update() {
+      setNavBottom(Math.max(0, window.innerHeight - vv!.height - vv!.offsetTop))
+    }
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
+  }, [])
 
   const myColor = shelf.members[userId]?.color ?? '#888'
 
@@ -298,6 +316,9 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
           {puzzle.title}
         </span>
         <button style={iconBtnStyle} onClick={() => setShowChat(c => !c)}>💬</button>
+        <button style={iconBtnStyle} onClick={toggleTheme} title={dark ? 'Light mode' : 'Dark mode'}>
+          {dark ? '☀️' : '🌙'}
+        </button>
         <div style={{ position: 'relative' }}>
           <button style={iconBtnStyle} onClick={() => setMenuOpen(m => !m)}>
             {actionLoading ? <Spinner size={16} /> : '⋯'}
@@ -363,8 +384,8 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
         )}
       </div>
 
-      {/* Grid */}
-      <div style={{ flex: 1, overflow: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 8 }}>
+      {/* Grid — paddingBottom reserves space for the fixed nav bar + keyboard */}
+      <div style={{ flex: 1, overflow: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 8, paddingBottom: navBottom + 64 }}>
         <CrosswordGrid
           puzzle={puzzle}
           shelf={shelf}
@@ -375,13 +396,17 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
         />
       </div>
 
-      {/* Word navigation bar */}
+      {/* Word navigation bar — fixed so it stays above the soft keyboard */}
       <div style={{
-        flexShrink: 0,
+        position: 'fixed',
+        bottom: navBottom,
+        left: 0,
+        right: 0,
         display: 'flex',
         alignItems: 'stretch',
         borderTop: '1px solid var(--color-border)',
         background: 'var(--color-bg)',
+        zIndex: 10,
       }}>
         <button onClick={() => navigateWord(-1)} style={navBtnStyle}>
           ‹
