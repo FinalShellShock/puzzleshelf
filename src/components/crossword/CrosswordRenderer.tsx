@@ -22,6 +22,7 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
   const [selectedCell, setSelectedCell] = useState<string | null>(null)
   const [direction, setDirection] = useState<Direction>('across')
   const [showChat, setShowChat] = useState(false)
+  const [showClueList, setShowClueList] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const cursorRef = useRef<string | null>(null)
@@ -316,17 +317,64 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
         </div>
       </div>
 
-      {/* Grid */}
-      <div style={{ flex: 1, overflow: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '8px 0' }}>
-        <CrosswordGrid
-          puzzle={puzzle}
-          shelf={shelf}
-          selectedCell={selectedCell}
-          activeWordCells={activeWordCells}
-          myColor={myColor}
-          onCellSelect={handleCellSelect}
-        />
-      </div>
+      {/* Grid or Clue List */}
+      {showClueList ? (
+        <div style={{ flex: 1, overflow: 'auto' }}>
+          {(['across', 'down'] as Direction[]).map(dir => (
+            <div key={dir}>
+              <div style={{
+                padding: '10px 16px 4px',
+                fontSize: 11, fontWeight: 700,
+                color: 'var(--color-text-muted)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                background: 'var(--color-bg)',
+                position: 'sticky', top: 0,
+              }}>
+                {dir === 'across' ? 'Across' : 'Down'}
+              </div>
+              {getOrderedWords(dir).map(wordId => {
+                const num = wordId.replace(/[AD]$/, '')
+                const text = (dir === 'across' ? puzzle.clues?.across : puzzle.clues?.down)?.[num]
+                const isActive = wordId === activeWord && direction === dir
+                return (
+                  <button
+                    key={wordId}
+                    onClick={() => { navigateToWord(wordId, dir); setShowClueList(false) }}
+                    style={{
+                      display: 'flex', width: '100%', padding: '10px 16px',
+                      background: isActive
+                        ? 'color-mix(in srgb, var(--color-accent) 15%, var(--color-surface))'
+                        : 'var(--color-surface)',
+                      border: 'none',
+                      borderBottom: '1px solid var(--color-border)',
+                      textAlign: 'left', cursor: 'pointer', gap: 10, alignItems: 'flex-start',
+                    }}
+                  >
+                    <span style={{ fontWeight: 700, color: 'var(--color-accent)', minWidth: 24, fontSize: 14, flexShrink: 0 }}>
+                      {num}
+                    </span>
+                    <span style={{ fontSize: 14, color: 'var(--color-text)', lineHeight: 1.4 }}>
+                      {text}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ flex: 1, overflow: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '8px 0' }}>
+          <CrosswordGrid
+            puzzle={puzzle}
+            shelf={shelf}
+            selectedCell={selectedCell}
+            activeWordCells={activeWordCells}
+            myColor={myColor}
+            onCellSelect={handleCellSelect}
+          />
+        </div>
+      )}
 
       {/* Clue bar with prev/next navigation */}
       <div style={{
@@ -375,10 +423,18 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
           )}
         </div>
         <button onClick={() => navigateWord(1)} style={navBtnStyle}>›</button>
+        <button
+          onClick={() => setShowClueList(s => !s)}
+          style={{ ...navBtnStyle, fontSize: 18, color: showClueList ? 'var(--color-accent)' : 'var(--color-text-muted)', borderLeft: '1px solid var(--color-border)' }}
+        >
+          ☰
+        </button>
       </div>
 
-      {/* Custom keyboard */}
-      <CrosswordKeyboard onLetter={l => void handleLetterInput(l)} onDelete={() => void handleDelete()} />
+      {/* Custom keyboard — hidden when browsing clue list */}
+      {!showClueList && (
+        <CrosswordKeyboard onLetter={l => void handleLetterInput(l)} onDelete={() => void handleDelete()} />
+      )}
 
       {/* Chat slide-up */}
       {showChat && (
