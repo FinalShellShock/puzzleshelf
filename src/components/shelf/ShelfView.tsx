@@ -173,6 +173,7 @@ export function ShelfView() {
         <AddPuzzleModal
           shelfId={shelfId}
           userId={user!.uid}
+          puzzles={puzzles}
           onClose={() => setShowAddPuzzle(false)}
           onAdded={puzzleId => { setShowAddPuzzle(false); navigate(`/shelf/${shelfId}/puzzle/${puzzleId}`) }}
         />
