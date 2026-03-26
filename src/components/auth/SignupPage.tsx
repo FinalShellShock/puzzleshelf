@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { createUserWithEmailAndPassword } from 'firebase/auth'
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth'
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { Link, useNavigate } from 'react-router-dom'
 import { auth, db } from '../../lib/firebase'
@@ -21,6 +21,7 @@ export function SignupPage() {
     setLoading(true)
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password)
+      await updateProfile(cred.user, { displayName: name.trim() })
       await setDoc(doc(db, 'users', cred.user.uid), {
         displayName: name.trim(),
         email: email.toLowerCase(),

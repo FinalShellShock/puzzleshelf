@@ -40,12 +40,13 @@ export function ShelfView() {
     })
   }, [shelfId])
 
-  // Update presence: currentPuzzle = null when on shelf view
+  // Update presence: currentPuzzle = null when on shelf view; also refresh displayName in case it was stored incorrectly
   useEffect(() => {
-    if (!shelfId || !user) return
+    if (!shelfId || !user || !user.displayName) return
     updateDoc(doc(db, 'shelves', shelfId), {
       [`members.${user.uid}.currentPuzzle`]: null,
       [`members.${user.uid}.lastSeen`]: serverTimestamp(),
+      [`members.${user.uid}.displayName`]: user.displayName,
     }).catch(() => {})
   }, [shelfId, user])
 
