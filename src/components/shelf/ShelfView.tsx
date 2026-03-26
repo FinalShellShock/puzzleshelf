@@ -21,6 +21,8 @@ export function ShelfView() {
   const [puzzles, setPuzzles] = useState<Puzzle[]>([])
   const [puzzlesLoading, setPuzzlesLoading] = useState(true)
   const [showAddPuzzle, setShowAddPuzzle] = useState(false)
+  const [showInvite, setShowInvite] = useState(false)
+  const [codeCopied, setCodeCopied] = useState(false)
   const [tab, setTab] = useState<Tab>('puzzles')
 
   // Subscribe to puzzles
@@ -81,7 +83,7 @@ export function ShelfView() {
             <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>{shelf.name}</h1>
           </div>
           {/* Member presence dots */}
-          <div style={{ display: 'flex', gap: 4 }}>
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
             {members.map(([uid, m]) => (
               <div key={uid} title={m.displayName} style={{ position: 'relative' }}>
                 <div style={{
@@ -95,6 +97,22 @@ export function ShelfView() {
                 </div>
               </div>
             ))}
+            {members.length < 4 && (
+              <button
+                onClick={() => setShowInvite(true)}
+                title="Invite someone"
+                style={{
+                  width: 28, height: 28, borderRadius: '50%',
+                  background: 'none',
+                  border: '2px dashed var(--color-border)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', color: 'var(--color-text-muted)', fontSize: 16, lineHeight: 1,
+                  padding: 0,
+                }}
+              >
+                +
+              </button>
+            )}
           </div>
         </div>
 
@@ -169,6 +187,64 @@ export function ShelfView() {
           <ShelfStats shelf={shelf} puzzles={puzzles} />
         )}
       </div>
+
+      {showInvite && shelf && (
+        <div
+          onClick={() => setShowInvite(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 100,
+            background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'flex-end',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: '100%', maxWidth: 480, margin: '0 auto',
+              background: 'var(--color-surface)',
+              borderRadius: '16px 16px 0 0',
+              padding: '24px 20px 40px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Invite to shelf</h2>
+              <button
+                onClick={() => setShowInvite(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--color-text-muted)', lineHeight: 1 }}
+              >
+                ×
+              </button>
+            </div>
+            <p style={{ margin: '0 0 16px', color: 'var(--color-text-muted)', fontSize: 14 }}>
+              Share this code with someone to invite them to <strong style={{ color: 'var(--color-text)' }}>{shelf.name}</strong>.
+            </p>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              background: 'var(--color-bg)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 10, padding: '12px 16px',
+              marginBottom: 16,
+            }}>
+              <span style={{ flex: 1, fontSize: 28, fontWeight: 800, letterSpacing: 6, fontVariantNumeric: 'tabular-nums' }}>
+                {shelf.inviteCode}
+              </span>
+              <button
+                className="btn-secondary"
+                style={{ flexShrink: 0, minWidth: 80 }}
+                onClick={() => {
+                  navigator.clipboard.writeText(shelf.inviteCode).catch(() => {})
+                  setCodeCopied(true)
+                  setTimeout(() => setCodeCopied(false), 2000)
+                }}
+              >
+                {codeCopied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--color-text-muted)' }}>
+              {4 - members.length} spot{4 - members.length !== 1 ? 's' : ''} remaining
+            </p>
+          </div>
+        </div>
+      )}
 
       {showAddPuzzle && shelfId && (
         <AddPuzzleModal
