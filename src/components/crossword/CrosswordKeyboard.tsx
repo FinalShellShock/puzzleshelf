@@ -29,11 +29,7 @@ export function CrosswordKeyboard({ onLetter, onDelete }: Props) {
     }}>
       {ROWS.map((row, i) => (
         <div key={i} style={{ display: 'flex', gap: 3, justifyContent: 'center' }}>
-          {i === 2 && (
-            <button style={{ ...keyStyle, flex: 1.5, fontSize: 18 }} onPointerDown={tap(onDelete)}>
-              ⌫
-            </button>
-          )}
+          {i === 2 && <div style={{ flex: 1.5 }} />}
           {row.split('').map(letter => (
             <button
               key={letter}
@@ -43,7 +39,11 @@ export function CrosswordKeyboard({ onLetter, onDelete }: Props) {
               {letter}
             </button>
           ))}
-          {i === 2 && <div style={{ flex: 1.5 }} />}
+          {i === 2 && (
+            <button style={{ ...keyStyle, flex: 1.5, fontSize: 18 }} onPointerDown={tap(onDelete)}>
+              ⌫
+            </button>
+          )}
         </div>
       ))}
     </div>
