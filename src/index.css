@@ -122,6 +122,7 @@ body {
 
 /* ── Puzzle cell base ────────────────────────────────────────────────────── */
 .puzzle-cell {
+  background-color: var(--color-surface);
   border: var(--cell-border);
   border-radius: var(--cell-radius);
   display: flex;
