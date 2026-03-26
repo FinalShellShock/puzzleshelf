@@ -104,10 +104,14 @@ function CrosswordPicker({ shelfId, puzzles, onAdded, onBack }: {
     setLoadingDate(dateStr)
     setLoading(true)
     try {
+      console.log('[fetchCrossword] calling with', { shelfId, date: dateStr })
       const result = await fetchCrossword({ shelfId, date: dateStr })
+      console.log('[fetchCrossword] success', result.data)
       onAdded(result.data.puzzleId)
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Failed to fetch crossword'
+      console.error('[fetchCrossword] error', e)
+      const fe = e as Record<string, unknown>
+      const msg = fe?.message as string || fe?.code as string || 'Failed to fetch crossword'
       setError(msg)
     } finally {
       setLoading(false)
