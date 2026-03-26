@@ -63,7 +63,7 @@ export function CrosswordGrid({ puzzle, shelf, selectedCell, activeWordCells, on
             <div
               key={key}
               className={cellClass}
-              style={{ width: cellSize, height: cellSize, background: 'var(--color-surface)' }}
+              style={{ width: cellSize, height: cellSize, background: 'var(--color-surface)', touchAction: 'manipulation' }}
               onClick={() => onCellSelect(key)}
             >
               {meta?.number && (
