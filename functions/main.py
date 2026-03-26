@@ -4,12 +4,11 @@ Puzzle Shelf — Firebase Cloud Functions (Python 3.12)
 import base64
 import json
 import random
+import re
+import urllib.request
 from collections import deque
 from datetime import datetime
 from typing import List
-
-import requests
-from bs4 import BeautifulSoup, Tag
 
 import firebase_admin
 from firebase_admin import firestore
@@ -47,7 +46,29 @@ def _shelf_member_check(shelf_id: str, uid: str) -> dict:
 
 _LAT_PICKER_URL = "https://lat.amuselabs.com/lat/date-picker?set=latimes"
 _LAT_PUZZLE_URL = "https://lat.amuselabs.com/lat/crossword?id={puzzle_id}&set=latimes"
-_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; PuzzleShelf/1.0)"}
+_USER_AGENT = "Mozilla/5.0 (compatible; PuzzleShelf/1.0)"
+
+
+def _http_get(url: str) -> str:
+    """Simple HTTP GET using stdlib urllib — no external deps."""
+    req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return resp.read().decode("utf-8")
+
+
+def _parse_script_params(page_source: str) -> dict:
+    """Extract JSON from <script id="params">...</script> using regex."""
+    match = re.search(
+        r'<script[^>]+id=["\']params["\'][^>]*>(.*?)</script>',
+        page_source,
+        re.DOTALL,
+    )
+    if match:
+        try:
+            return json.loads(match.group(1))
+        except (json.JSONDecodeError, ValueError):
+            pass
+    return {}
 
 
 def _get_load_token(picker_source: str):
@@ -60,10 +81,7 @@ def _get_load_token(picker_source: str):
                 rawsps = parts[1] if len(parts) > 1 else None
                 break
     else:
-        soup = BeautifulSoup(picker_source, "html.parser")
-        param_tag = soup.find("script", id="params")
-        if isinstance(param_tag, Tag):
-            rawsps = json.loads(param_tag.string or "").get("rawsps")
+        rawsps = _parse_script_params(picker_source).get("rawsps")
 
     if rawsps:
         picker_params = json.loads(base64.b64decode(rawsps).decode("utf-8"))
@@ -78,11 +96,7 @@ def _get_rawc(page_source: str) -> str:
             if "window.rawc" in line or "window.puzzleEnv.rawc" in line:
                 parts = line.strip().split("'")
                 return parts[1] if len(parts) > 1 else ""
-    soup = BeautifulSoup(page_source, "html.parser")
-    script_tag = soup.find("script", id="params")
-    if isinstance(script_tag, Tag):
-        return json.loads(script_tag.string or "").get("rawc", "")
-    return ""
+    return _parse_script_params(page_source).get("rawc", "")
 
 
 def _is_valid_key_prefix(rawc: str, key_prefix: List[int], spacing: int) -> bool:
@@ -190,10 +204,8 @@ def _fetch_lat_xword_data(date_str: str) -> dict:
     puzzle_id = "tca" + date.strftime("%y%m%d")  # 2-digit year: tca260325
 
     # Fetch the date-picker to get the loadToken
-    picker_res = requests.get(_LAT_PICKER_URL, headers=_HEADERS, timeout=30)
-    if not picker_res.ok:
-        raise Exception(f"Could not reach AmuseLabs picker: HTTP {picker_res.status_code}")
-    token = _get_load_token(picker_res.text)
+    picker_source = _http_get(_LAT_PICKER_URL)
+    token = _get_load_token(picker_source)
 
     # Build puzzle URL (append token if available)
     puzzle_url = _LAT_PUZZLE_URL.format(puzzle_id=puzzle_id)
@@ -201,13 +213,13 @@ def _fetch_lat_xword_data(date_str: str) -> dict:
         puzzle_url += f"&loadToken={token}"
 
     # Fetch the puzzle page
-    puzzle_res = requests.get(puzzle_url, headers=_HEADERS, timeout=30)
+    puzzle_source = _http_get(puzzle_url)
     not_found_msg = "The puzzle you are trying to access was not found"
-    if not puzzle_res.ok or not_found_msg in puzzle_res.text:
+    if not_found_msg in puzzle_source:
         raise Exception(f"Puzzle not found for {date_str} (id={puzzle_id})")
 
     # Extract rawc and deobfuscate
-    rawc = _get_rawc(puzzle_res.text)
+    rawc = _get_rawc(puzzle_source)
     if not rawc:
         raise Exception("Could not find rawc blob in puzzle page")
 
