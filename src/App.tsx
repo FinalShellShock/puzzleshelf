@@ -20,19 +20,17 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
-          <Route path="/terms" element={<TermsPage />} />
-          <Route path="/privacy" element={<PrivacyPage />} />
-          <Route path="/" element={<AuthGuard><ShelfListPage /></AuthGuard>} />
-          <Route path="/shelf/:shelfId" element={<AuthGuard><ShelfView /></AuthGuard>} />
-          <Route path="/shelf/:shelfId/puzzle/:puzzleId" element={<AuthGuard><PuzzleView /></AuthGuard>} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-        <Footer />
-      </div>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/" element={<AuthGuard><ShelfListPage /></AuthGuard>} />
+        <Route path="/shelf/:shelfId" element={<AuthGuard><ShelfView /></AuthGuard>} />
+        <Route path="/shelf/:shelfId/puzzle/:puzzleId" element={<AuthGuard><PuzzleView /></AuthGuard>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <Footer />
     </BrowserRouter>
   )
 }

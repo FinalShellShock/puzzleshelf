@@ -13,7 +13,6 @@ export function Footer() {
 }
 
 const footerStyle: React.CSSProperties = {
-  marginTop: 'auto',
   padding: '14px 24px',
   textAlign: 'center',
   fontSize: 12,

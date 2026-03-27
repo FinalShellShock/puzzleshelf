@@ -6,31 +6,27 @@ import { auth, db } from '../lib/firebase'
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const [tosAccepted, setTosAccepted] = useState<boolean | null>(null)
 
   useEffect(() => {
     return onAuthStateChanged(auth, async u => {
-      if (u) {
+      if (u && !u.displayName) {
+        // Auth profile missing displayName — try to restore it from Firestore
         try {
           const snap = await getDoc(doc(db, 'users', u.uid))
-          const data = snap.data()
-          const name = data?.displayName as string | undefined
-          if (name && !u.displayName) {
+          const name = snap.data()?.displayName as string | undefined
+          if (name) {
             await updateProfile(u, { displayName: name })
             // onAuthStateChanged will fire again with the updated profile
             return
           }
-          setTosAccepted(!!data?.tosAcceptedAt)
         } catch {
-          setTosAccepted(false)
+          // Fall through and return user as-is
         }
-      } else {
-        setTosAccepted(null)
       }
       setUser(u)
       setLoading(false)
     })
   }, [])
 
-  return { user, loading, tosAccepted }
+  return { user, loading }
 }
