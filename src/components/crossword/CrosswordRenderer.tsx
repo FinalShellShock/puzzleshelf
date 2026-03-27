@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { MessageSquare, Sun, Moon } from 'lucide-react'
 import { doc, updateDoc, serverTimestamp, deleteField } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 import { checkPuzzle, revealCells } from '../../lib/functions'
@@ -421,9 +422,11 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
             ))}
           </div>
         )}
-        <button style={iconBtnStyle} onClick={() => setShowChat(c => !c)}>💬</button>
+        <button style={iconBtnStyle} onClick={() => setShowChat(c => !c)} title="Chat">
+          <MessageSquare size={18} />
+        </button>
         <button style={iconBtnStyle} onClick={toggleTheme} title={dark ? 'Light mode' : 'Dark mode'}>
-          {dark ? '☀️' : '🌙'}
+          {dark ? <Sun size={18} /> : <Moon size={18} />}
         </button>
         <div style={{ position: 'relative' }}>
           <button style={iconBtnStyle} onClick={() => setMenuOpen(m => !m)}>

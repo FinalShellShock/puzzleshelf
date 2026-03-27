@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { MessageSquare } from 'lucide-react'
 import { doc, updateDoc, serverTimestamp, arrayUnion, arrayRemove } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 import { checkPuzzle } from '../../lib/functions'
@@ -187,7 +188,9 @@ export function SudokuRenderer({ puzzle, shelf, userId, shelfId }: Props) {
             ))}
           </div>
         )}
-        <button style={iconBtnStyle} onClick={() => setShowChat(c => !c)}>💬</button>
+        <button style={iconBtnStyle} onClick={() => setShowChat(c => !c)} title="Chat">
+          <MessageSquare size={18} />
+        </button>
         <div style={{ position: 'relative' }}>
           <button style={iconBtnStyle} onClick={() => setMenuOpen(m => !m)}>
             {actionLoading ? <Spinner size={16} /> : '⋯'}
