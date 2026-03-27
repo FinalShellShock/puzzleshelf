@@ -6,6 +6,7 @@ import { SignupPage } from './components/auth/SignupPage'
 import { ShelfListPage } from './components/shelf/ShelfListPage'
 import { ShelfView } from './components/shelf/ShelfView'
 import { PuzzleView } from './components/library/PuzzleView'
+import { DarkModeToggle } from './components/ui/DarkModeToggle'
 
 export default function App() {
   // Initialize theme from localStorage / system preference on mount
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="/shelf/:shelfId/puzzle/:puzzleId" element={<AuthGuard><PuzzleView /></AuthGuard>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <DarkModeToggle />
     </BrowserRouter>
   )
 }

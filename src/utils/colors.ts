@@ -1,18 +1,18 @@
 import type { UserColor, Shelf } from '../types'
 
 export const USER_COLORS: UserColor[] = [
-  { name: 'Gold',     hex: '#C8923E' },
-  { name: 'Ocean',    hex: '#2E7D7B' },
-  { name: 'Coral',    hex: '#C2724E' },
-  { name: 'Plum',     hex: '#7B5EA7' },
-  { name: 'Storm',    hex: '#4A7BA7' },
-  { name: 'Rose',     hex: '#B5687A' },
-  { name: 'Mulberry', hex: '#893A5E' },
-  { name: 'Dusk',     hex: '#7B8EC2' },
+  { name: 'Tomato',      hex: '#E04848' },
+  { name: 'Tangerine',   hex: '#E07830' },
+  { name: 'Sunshine',    hex: '#C8A020' },
+  { name: 'Fern',        hex: '#40A848' },
+  { name: 'Violet',      hex: '#7050C8' },
+  { name: 'Magenta',     hex: '#C83898' },
+  { name: 'Azure',       hex: '#2868C8' },
+  { name: 'Raspberry',   hex: '#B82858' },
 ]
 
-// Warm greige used for former members — neutral but fits the palette
-export const FORMER_MEMBER_COLOR = '#A09890'
+// Neutral gray used for former members — works on both light and dark
+export const FORMER_MEMBER_COLOR = '#7888A8'
 
 export function getColorByName(name: string): UserColor | undefined {
   return USER_COLORS.find(c => c.name === name)

@@ -4,6 +4,7 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { Link, useNavigate } from 'react-router-dom'
 import { auth, db } from '../../lib/firebase'
 import { Spinner } from '../ui/Spinner'
+import { Logo } from '../ui/Logo'
 
 export function SignupPage() {
   const navigate = useNavigate()
@@ -38,10 +39,9 @@ export function SignupPage() {
   return (
     <div style={pageStyle}>
       <div style={cardStyle} className="surface">
-        <h1 style={{ margin: '0 0 4px', fontSize: 28, fontWeight: 800 }}>Puzzle Shelf</h1>
-        <p style={{ margin: '0 0 28px', color: 'var(--color-text-muted)', fontSize: 15 }}>
-          Create your account
-        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 32 }}>
+          <Logo size={160} />
+        </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>

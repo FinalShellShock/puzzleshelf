@@ -8,6 +8,7 @@ import { useMemberNames } from '../../hooks/useMemberNames'
 import { USER_COLORS, getAvailableColors } from '../../utils/colors'
 import { Modal } from '../ui/Modal'
 import { Spinner } from '../ui/Spinner'
+import { Logo } from '../ui/Logo'
 import type { Shelf } from '../../types'
 
 function generateInviteCode() {
@@ -46,18 +47,18 @@ export function ShelfListPage() {
     <div style={{ maxWidth: 480, margin: '0 auto', padding: '24px 16px' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800 }}>Puzzle Shelf</h1>
-          <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--color-text-muted)' }}>
+        <Logo size={48} />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
             {user?.displayName ?? user?.email}
-          </p>
+          </span>
+          <button
+            onClick={() => signOut(auth)}
+            style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: 11, padding: 0, opacity: 0.7 }}
+          >
+            sign out
+          </button>
         </div>
-        <button
-          onClick={() => signOut(auth)}
-          style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: 13 }}
-        >
-          Sign out
-        </button>
       </div>
 
       {/* Shelf list */}

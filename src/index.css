@@ -1,37 +1,37 @@
 @import "tailwindcss";
 
-/* ── Bookshelf palette ───────────────────────────────────────────────────── */
+/* ── Palette: mint / teal / periwinkle / navy ────────────────────────────── */
 :root {
-  --color-bg:           #F7F3EE;
-  --color-surface:      #FBF8F4;
-  --color-border:       #E4D9CB;
-  --color-text:         #3D2E22;
-  --color-text-muted:   #7B6B5A;
-  --color-accent:       #8B6F4E;
+  --color-bg:           #EDFCF7;
+  --color-surface:      #F5FFFC;
+  --color-border:       #A8E8D8;
+  --color-text:         #1A2468;
+  --color-text-muted:   #5860A4;
+  --color-accent:       #2DBDB0;
 
   /* validation — reserved, never used as user colors */
-  --color-correct:      #6BAE7A;
-  --color-incorrect:    #C97070;
-  --color-revealed:     #A0998E;
+  --color-correct:      #3AAA60;
+  --color-incorrect:    #C85050;
+  --color-revealed:     #7888A8;
 
   /* grid */
   --cell-radius:        5px;
-  --cell-border:        0.5px solid #E4D9CB;
+  --cell-border:        0.5px solid #A8E8D8;
 }
 
 .dark {
-  --color-bg:           #1C1612;
-  --color-surface:      #332618;   /* lighter cells — clearly distinct from bg */
-  --color-border:       #5C4A38;   /* more visible borders */
-  --color-text:         #EDE5D8;
-  --color-text-muted:   #A0907C;
-  --color-accent:       #C4A882;   /* warmer, brighter accent */
+  --color-bg:           #141C58;
+  --color-surface:      #1C2468;
+  --color-border:       #2A3480;
+  --color-text:         #A0EDD8;
+  --color-text-muted:   #5898A0;
+  --color-accent:       #38C8BC;
 
-  --color-correct:      #5A9E6A;
-  --color-incorrect:    #B06060;
-  --color-revealed:     #857E74;
+  --color-correct:      #30986A;
+  --color-incorrect:    #A84040;
+  --color-revealed:     #506080;
 
-  --cell-border:        1px solid #5C4A38;  /* thicker border in dark mode */
+  --cell-border:        1px solid #2A3480;
 }
 
 /* ── Base ────────────────────────────────────────────────────────────────── */
@@ -47,8 +47,9 @@ html, body, #root {
 body {
   background-color: var(--color-bg);
   color: var(--color-text);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 200ms ease-out, color 200ms ease-out;
 }
 
 /* ── Scrollbar ───────────────────────────────────────────────────────────── */
@@ -135,15 +136,15 @@ body {
 }
 
 .puzzle-cell.black {
-  background-color: #2C2C2A;
-  border-color: #2C2C2A;
+  background-color: #1A2468;
+  border-color: #1A2468;
   cursor: default;
 }
 
 /* Dark mode: black cells must be darker than the cell surface */
 .dark .puzzle-cell.black {
-  background-color: #110D09;
-  border-color: #110D09;
+  background-color: #0A1040;
+  border-color: #0A1040;
 }
 
 .puzzle-cell.selected {
