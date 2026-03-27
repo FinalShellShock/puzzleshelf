@@ -62,29 +62,52 @@ export function ShelfListPage() {
 
       {/* Shelf list */}
       {shelves.length === 0 ? (
-        <div className="surface" style={{ padding: 32, textAlign: 'center' }}>
-          <p style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 600 }}>No shelves yet</p>
-          <p style={{ margin: '0 0 20px', color: 'var(--color-text-muted)', fontSize: 14 }}>
-            Create a shelf or join one with an invite code.
-          </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="surface" style={{ padding: '28px 24px', textAlign: 'center' }}>
+            <p style={{ margin: '0 0 6px', fontSize: 22 }}>🧩</p>
+            <p style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 700 }}>Welcome to Puzzle Shelf!</p>
+            <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 14, lineHeight: 1.5 }}>
+              A shelf is a shared space where you and your group track your puzzle collection. Get started below.
+            </p>
+          </div>
+          <button
+            className="surface"
+            onClick={() => setShowCreate(true)}
+            style={{ padding: '20px 24px', textAlign: 'left', border: 'none', cursor: 'pointer', width: '100%' }}
+          >
+            <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700 }}>Create a shelf</p>
+            <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 13 }}>
+              Start fresh — set up a shelf for your household or group.
+            </p>
+          </button>
+          <button
+            className="surface"
+            onClick={() => setShowJoin(true)}
+            style={{ padding: '20px 24px', textAlign: 'left', border: 'none', cursor: 'pointer', width: '100%' }}
+          >
+            <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700 }}>Join a shelf</p>
+            <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 13 }}>
+              Got an invite code? Join a shelf someone shared with you.
+            </p>
+          </button>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {shelves.map(shelf => (
-            <ShelfCard key={shelf.id} shelf={shelf} userId={user!.uid} onClick={() => navigate(`/shelf/${shelf.id}`)} />
-          ))}
-        </div>
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {shelves.map(shelf => (
+              <ShelfCard key={shelf.id} shelf={shelf} userId={user!.uid} onClick={() => navigate(`/shelf/${shelf.id}`)} />
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+            <button className="btn-primary" style={{ flex: 1 }} onClick={() => setShowCreate(true)}>
+              New shelf
+            </button>
+            <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setShowJoin(true)}>
+              Join shelf
+            </button>
+          </div>
+        </>
       )}
-
-      {/* Actions */}
-      <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
-        <button className="btn-primary" style={{ flex: 1 }} onClick={() => setShowCreate(true)}>
-          New shelf
-        </button>
-        <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setShowJoin(true)}>
-          Join shelf
-        </button>
-      </div>
 
       {showCreate && user && (
         <CreateShelfModal userId={user.uid} displayName={user.displayName ?? 'You'} onClose={() => setShowCreate(false)} onCreated={id => navigate(`/shelf/${id}`)} />
