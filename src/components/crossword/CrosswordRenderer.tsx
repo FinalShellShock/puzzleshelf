@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, updateDoc, serverTimestamp, deleteField } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 import { checkPuzzle, revealCells } from '../../lib/functions'
 import { CrosswordGrid } from './CrosswordGrid'
@@ -94,8 +94,29 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
       return
     }
     const idx = words.indexOf(currentWord)
-    const nextIdx = (idx + delta + words.length) % words.length
-    navigateToWord(words[nextIdx], dir)
+    const nextIdx = idx + delta
+
+    if (nextIdx >= words.length) {
+      // Past the end — switch to the other orientation and start from its first word
+      const otherDir: Direction = dir === 'across' ? 'down' : 'across'
+      const otherWords = getOrderedWords(otherDir)
+      if (otherWords.length > 0) {
+        navigateToWord(otherWords[0], otherDir)
+      } else {
+        navigateToWord(words[0], dir)
+      }
+    } else if (nextIdx < 0) {
+      // Before the start — switch to the other orientation and start from its last word
+      const otherDir: Direction = dir === 'across' ? 'down' : 'across'
+      const otherWords = getOrderedWords(otherDir)
+      if (otherWords.length > 0) {
+        navigateToWord(otherWords[otherWords.length - 1], otherDir)
+      } else {
+        navigateToWord(words[words.length - 1], dir)
+      }
+    } else {
+      navigateToWord(words[nextIdx], dir)
+    }
   }
 
   function toggleDirection() {
@@ -153,20 +174,32 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
 
   function advanceCursor(fromCell: string) {
     const dir = directionRef.current
-    const m = fromCell.match(/r(\d+)c(\d+)/)
-    if (!m) return
-    const row = parseInt(m[1]), col = parseInt(m[2])
-    const nextKey = dir === 'across' ? `r${row}c${col + 1}` : `r${row + 1}c${col}`
-    const nextMeta = puzzle.gridMeta?.[nextKey]
     const currentWordId = getWordId(fromCell, dir)
-    const nextWordId = nextMeta ? getWordId(nextKey, dir) : undefined
+    if (!currentWordId) return
+    const wordCells = sortCells(getCellsInWord(currentWordId, dir), dir)
+    const currentIdx = wordCells.indexOf(fromCell)
+    if (currentIdx === -1) return
 
-    if (nextMeta && !nextMeta.isBlack && nextWordId === currentWordId) {
-      cursorRef.current = nextKey
-      setSelectedCell(nextKey)
-    } else {
-      navigateWord(1)
+    // Find next empty cell after current position in this word
+    for (let i = currentIdx + 1; i < wordCells.length; i++) {
+      if (!puzzle.cells[wordCells[i]]?.value) {
+        cursorRef.current = wordCells[i]
+        setSelectedCell(wordCells[i])
+        return
+      }
     }
+
+    // Wrap: look for empty cell from the beginning up to current position
+    for (let i = 0; i < currentIdx; i++) {
+      if (!puzzle.cells[wordCells[i]]?.value) {
+        cursorRef.current = wordCells[i]
+        setSelectedCell(wordCells[i])
+        return
+      }
+    }
+
+    // Word is fully filled — move to next word
+    navigateWord(1)
   }
 
   async function handleLetterInput(letter: string) {
@@ -204,6 +237,8 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
   const keyHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {})
   keyHandlerRef.current = (e: KeyboardEvent) => {
     if (!cursorRef.current) return
+    const target = e.target as HTMLElement
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return
     const key = e.key
 
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) {
@@ -249,6 +284,39 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [])
+
+  // Write presence (selected cell + direction) to Firestore so other members can see it
+  useEffect(() => {
+    if (!selectedCell) return
+    updateDoc(doc(db, 'shelves', shelfId), {
+      [`members.${userId}.currentCell`]: selectedCell,
+      [`members.${userId}.currentDirection`]: direction,
+    }).catch(() => {})
+  }, [selectedCell, direction, shelfId, userId])
+
+  // Clear presence on unmount
+  useEffect(() => {
+    return () => {
+      updateDoc(doc(db, 'shelves', shelfId), {
+        [`members.${userId}.currentCell`]: deleteField(),
+        [`members.${userId}.currentDirection`]: deleteField(),
+      }).catch(() => {})
+    }
+  }, [shelfId, userId])
+
+  // Compute other members' active word cells for presence highlighting
+  const memberPresence: Record<string, { wordCells: string[], color: string }> = {}
+  for (const [id, member] of Object.entries(shelf.members)) {
+    if (id === userId) continue
+    if (member.currentPuzzle !== puzzle.id) continue
+    if (!member.currentCell || !member.currentDirection) continue
+    const wordId = getWordId(member.currentCell, member.currentDirection)
+    if (!wordId) continue
+    memberPresence[id] = {
+      wordCells: getCellsInWord(wordId, member.currentDirection),
+      color: member.color,
+    }
+  }
 
   async function handleCheck(scope: 'word' | 'all') {
     setMenuOpen(false)
@@ -370,6 +438,7 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
             shelf={shelf}
             selectedCell={selectedCell}
             activeWordCells={activeWordCells}
+            memberPresence={memberPresence}
             myColor={myColor}
             onCellSelect={handleCellSelect}
           />
