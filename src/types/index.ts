@@ -24,6 +24,8 @@ export interface ShelfMember {
   colorName: string
   joinedAt: Timestamp
   currentPuzzle: string | null
+  currentCell?: string              // crossword presence: which cell they have selected
+  currentDirection?: 'across' | 'down'  // crossword presence: which direction
   lastSeen: Timestamp | null
 }
 
@@ -53,6 +55,7 @@ export interface PuzzleCell {
   timestamp: Timestamp
   status: CellStatus
   given: boolean        // true for pre-filled sudoku cells
+  notes?: number[]      // sudoku candidate notes (1-9)
 }
 
 export interface CrosswordClues {

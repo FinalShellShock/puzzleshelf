@@ -6,11 +6,12 @@ interface Props {
   shelf: Shelf
   selectedCell: string | null
   activeWordCells: string[]
+  memberPresence?: Record<string, { wordCells: string[], color: string }>
   myColor: string
   onCellSelect: (cellKey: string) => void
 }
 
-export function CrosswordGrid({ puzzle, shelf, selectedCell, activeWordCells, onCellSelect }: Props) {
+export function CrosswordGrid({ puzzle, shelf, selectedCell, activeWordCells, memberPresence, onCellSelect }: Props) {
   const { gridWidth: cols, gridHeight: rows } = puzzle
   // Cell size: fill viewport width on mobile
   // Account for (cols-1) gaps of 1px and 2px outer border so grid never overflows viewport
@@ -54,6 +55,11 @@ export function CrosswordGrid({ puzzle, shelf, selectedCell, activeWordCells, on
             ? getMemberColor(shelf, filledBy)
             : 'var(--color-text-muted)'
 
+          // Find any member whose active word includes this cell
+          const presenceEntries = memberPresence
+            ? Object.values(memberPresence).filter(p => p.wordCells.includes(key))
+            : []
+
           let cellClass = 'puzzle-cell'
           if (isSelected) cellClass += ' selected'
           else if (isInWord) cellClass += ' in-word'
@@ -61,11 +67,16 @@ export function CrosswordGrid({ puzzle, shelf, selectedCell, activeWordCells, on
           if (status === 'incorrect') cellClass += ' incorrect'
           if (status === 'revealed') cellClass += ' revealed'
 
+          // Presence ring: subtle inset shadow in the member's color
+          const presenceStyle: React.CSSProperties = presenceEntries.length > 0
+            ? { boxShadow: `inset 0 0 0 2px ${presenceEntries[0].color}88` }
+            : {}
+
           return (
             <div
               key={key}
               className={cellClass}
-              style={{ width: cellSize, height: cellSize, touchAction: 'manipulation' }}
+              style={{ width: cellSize, height: cellSize, touchAction: 'manipulation', ...presenceStyle }}
               onClick={() => onCellSelect(key)}
             >
               {meta?.number && (

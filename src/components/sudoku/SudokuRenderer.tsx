@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, updateDoc, serverTimestamp, arrayUnion, arrayRemove } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 import { checkPuzzle } from '../../lib/functions'
 import { SudokuGrid } from './SudokuGrid'
@@ -17,13 +17,15 @@ interface Props {
 
 export function SudokuRenderer({ puzzle, shelf, userId, shelfId }: Props) {
   const [selectedCell, setSelectedCell] = useState<string | null>(null)
+  const [highlightedNumber, setHighlightedNumber] = useState<string | null>(null)
+  const [notesMode, setNotesMode] = useState(false)
   const [showChat, setShowChat] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
 
   const myColor = shelf.members[userId]?.color ?? '#888'
 
-  // Build values map for conflict detection (only non-given, non-empty cells)
+  // Build values map for conflict detection
   const cellValues: Record<string, string> = {}
   for (const [key, cell] of Object.entries(puzzle.cells)) {
     if (cell.value) cellValues[key] = cell.value
@@ -40,19 +42,55 @@ export function SudokuRenderer({ puzzle, shelf, userId, shelfId }: Props) {
         timestamp: serverTimestamp(),
         status: 'unchecked',
         given: false,
+        notes: [],  // clear notes when a value is entered
       }
     })
   }
 
+  async function toggleNote(cellKey: string, digit: number) {
+    const puzzleRef = doc(db, 'shelves', shelfId, 'puzzles', puzzle.id)
+    const existingCell = puzzle.cells[cellKey]
+    if (!existingCell) {
+      await updateDoc(puzzleRef, {
+        [`cells.${cellKey}`]: {
+          value: '',
+          filledBy: userId,
+          timestamp: serverTimestamp(),
+          status: 'unchecked',
+          given: false,
+          notes: [digit],
+        }
+      })
+    } else {
+      const hasNote = existingCell.notes?.includes(digit) ?? false
+      await updateDoc(puzzleRef, {
+        [`cells.${cellKey}.notes`]: hasNote ? arrayRemove(digit) : arrayUnion(digit),
+      })
+    }
+  }
+
   const handleCellSelect = useCallback((key: string) => {
     const isGiven = puzzle.constraints?.[key] !== undefined
-    if (!isGiven) setSelectedCell(key)
+    if (isGiven) {
+      setSelectedCell(null)
+    } else {
+      setSelectedCell(key)
+      setHighlightedNumber(null)
+    }
   }, [puzzle.constraints])
 
   async function handleNumberInput(digit: string) {
-    if (!selectedCell) return
-    await writeCell(selectedCell, digit)
-    // Auto-advance: move to next empty cell
+    if (selectedCell) {
+      setHighlightedNumber(null)
+      if (notesMode) {
+        await toggleNote(selectedCell, parseInt(digit))
+      } else {
+        await writeCell(selectedCell, digit)
+      }
+    } else {
+      // No cell selected — toggle highlight for this number
+      setHighlightedNumber(prev => prev === digit ? null : digit)
+    }
   }
 
   async function handleClear() {
@@ -108,13 +146,18 @@ export function SudokuRenderer({ puzzle, shelf, userId, shelfId }: Props) {
         </div>
       </div>
 
-      {/* Grid */}
-      <div style={{ flex: 1, overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      {/* Grid — clicking the container background deselects */}
+      <div
+        style={{ flex: 1, overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+        onClick={() => { setSelectedCell(null); setHighlightedNumber(null) }}
+      >
         <SudokuGrid
           puzzle={puzzle}
           shelf={shelf}
           selectedCell={selectedCell}
           conflicts={conflicts}
+          highlightedNumber={highlightedNumber}
+          notesMode={notesMode}
           myColor={myColor}
           onCellSelect={handleCellSelect}
         />
@@ -131,19 +174,40 @@ export function SudokuRenderer({ puzzle, shelf, userId, shelfId }: Props) {
             <button
               key={d}
               onClick={() => handleNumberInput(d)}
-              disabled={!selectedCell}
               style={{
                 height: 52, borderRadius: 10, fontSize: 22, fontWeight: 700,
-                background: 'var(--color-surface)',
-                border: '1.5px solid var(--color-border)',
+                background: highlightedNumber === d
+                  ? 'color-mix(in srgb, var(--color-accent) 20%, var(--color-surface))'
+                  : 'var(--color-surface)',
+                border: highlightedNumber === d
+                  ? '1.5px solid var(--color-accent)'
+                  : '1.5px solid var(--color-border)',
                 cursor: 'pointer', color: myColor,
-                transition: 'opacity 150ms',
-                opacity: selectedCell ? 1 : 0.4,
+                transition: 'background 150ms, border-color 150ms',
               }}
             >
               {d}
             </button>
           ))}
+          {/* Notes toggle */}
+          <button
+            onClick={() => setNotesMode(m => !m)}
+            style={{
+              height: 52, borderRadius: 10, fontSize: 13, fontWeight: 600,
+              background: notesMode
+                ? 'color-mix(in srgb, var(--color-accent) 20%, var(--color-surface))'
+                : 'var(--color-surface)',
+              border: notesMode
+                ? '1.5px solid var(--color-accent)'
+                : '1.5px solid var(--color-border)',
+              cursor: 'pointer',
+              color: notesMode ? 'var(--color-accent)' : 'var(--color-text-muted)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+            }}
+          >
+            ✏️
+          </button>
+          {/* Clear */}
           <button
             onClick={handleClear}
             disabled={!selectedCell}
