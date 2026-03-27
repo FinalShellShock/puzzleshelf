@@ -652,8 +652,13 @@ def reveal_cells(req: https_fn.CallableRequest) -> dict:
     else:
         keys_to_reveal = []
 
+    existing_cells = puzzle_data.get("cells", {})
     updates = {}
     for key in keys_to_reveal:
+        # Don't overwrite a cell a contributor already got right — they keep their color and credit
+        existing = existing_cells.get(key, {})
+        if existing.get("status") == "correct":
+            continue
         match = key[1:].split("c")
         if len(match) != 2:
             continue
