@@ -30,6 +30,17 @@ export function PuzzleView() {
     }
   }, [shelfId, puzzleId, user])
 
+  // Heartbeat: keep lastSeen fresh so stale presence is detectable
+  useEffect(() => {
+    if (!shelfId || !user) return
+    const interval = setInterval(() => {
+      updateDoc(doc(db, 'shelves', shelfId), {
+        [`members.${user.uid}.lastSeen`]: serverTimestamp(),
+      }).catch(() => {})
+    }, 30_000)
+    return () => clearInterval(interval)
+  }, [shelfId, user])
+
   if (shelfLoading || puzzleLoading) {
     return (
       <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

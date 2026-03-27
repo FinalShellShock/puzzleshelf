@@ -30,8 +30,12 @@ export function PuzzleCard({ puzzle, shelf, userId: _userId, onClick }: PuzzleCa
   }))
   const totalCells = puzzle.gridWidth * puzzle.gridHeight
 
-  // Who's currently in this puzzle (only current members can be present)
-  const presentMembers = Object.entries(shelf.members).filter(([, m]) => m.currentPuzzle === puzzle.id)
+  // Who's currently in this puzzle — require a fresh lastSeen to avoid stale presence
+  const presentMembers = Object.entries(shelf.members).filter(([, m]) =>
+    m.currentPuzzle === puzzle.id &&
+    m.lastSeen != null &&
+    Date.now() - m.lastSeen.toMillis() < 2 * 60 * 1000
+  )
 
   const statusColor = puzzle.status === 'completed'
     ? 'var(--color-correct)'

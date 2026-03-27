@@ -31,6 +31,14 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
 
   const myColor = shelf.members[userId]?.color ?? '#888'
 
+  // Other members currently in this puzzle with a fresh lastSeen
+  const coPresent = Object.entries(shelf.members).filter(([id, m]) =>
+    id !== userId &&
+    m.currentPuzzle === puzzle.id &&
+    m.lastSeen != null &&
+    Date.now() - m.lastSeen.toMillis() < 2 * 60 * 1000
+  )
+
   function getWordId(cellKey: string, dir: Direction): string | undefined {
     return puzzle.gridMeta?.[cellKey]?.[dir === 'across' ? 'acrossWord' : 'downWord']
   }
@@ -355,6 +363,20 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
         <span style={{ flex: 1, fontWeight: 700, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {puzzle.title}
         </span>
+        {coPresent.length > 0 && (
+          <div style={{ display: 'flex', gap: 4 }}>
+            {coPresent.map(([id, m]) => (
+              <div key={id} title={m.displayName} style={{
+                width: 24, height: 24, borderRadius: '50%',
+                background: m.color, fontSize: 11, fontWeight: 700,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'white', flexShrink: 0,
+              }}>
+                {m.displayName[0]}
+              </div>
+            ))}
+          </div>
+        )}
         <button style={iconBtnStyle} onClick={() => setShowChat(c => !c)}>💬</button>
         <button style={iconBtnStyle} onClick={toggleTheme} title={dark ? 'Light mode' : 'Dark mode'}>
           {dark ? '☀️' : '🌙'}
