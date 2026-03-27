@@ -2,17 +2,14 @@
 
 ## Testing
 
-**Always test through the Chrome MCP, not local preview.**
+Use the local Vite dev server (`mcp__Claude_Preview__*`) for testing — it connects to the real Firebase project so auth and Firestore work normally. Use Chrome MCP to verify the deployed Vercel build when needed.
 
-The app requires Firebase Authentication and Firestore to function — login, shelf loading, puzzle state, and the TOS acceptance flow all depend on live Firebase data. The local Vite dev server works for build verification, but any feature that touches auth or Firestore must be tested through Chrome MCP against the running app (local or deployed).
+### Test Account
 
-Use `mcp__Claude_in_Chrome__*` tools for:
-- Navigating pages and verifying UI
-- Testing auth flows (login, signup, TOS modal)
-- Verifying Firestore reads/writes (shelf loading, puzzle state, tosAcceptedAt)
-- Any feature that requires being logged in
+- **Email:** johnnychadwick@comcast.net
+- **Password:** TestShelf#2026
 
-Only use `mcp__Claude_Preview__*` for checking build errors or verifying purely static rendering with no auth dependency.
+Firebase Auth persists the session in localStorage, so login is only needed once per preview server session. Use this account whenever the session has expired.
 
 ## Tech Stack
 
