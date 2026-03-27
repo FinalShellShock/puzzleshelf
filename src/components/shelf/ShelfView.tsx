@@ -193,17 +193,43 @@ export function ShelfView() {
                 </button>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {puzzles.map(puzzle => (
-                  <PuzzleCard
-                    key={puzzle.id}
-                    puzzle={puzzle}
-                    shelf={shelf}
-                    userId={user!.uid}
-                    onClick={() => navigate(`/shelf/${shelfId}/puzzle/${puzzle.id}`)}
-                  />
-                ))}
-              </div>
+              (() => {
+                const activePuzzles = puzzles.filter(p => p.status !== 'completed')
+                const completedPuzzles = puzzles.filter(p => p.status === 'completed')
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {activePuzzles.map(puzzle => (
+                      <PuzzleCard
+                        key={puzzle.id}
+                        puzzle={puzzle}
+                        shelf={shelf}
+                        userId={user!.uid}
+                        onClick={() => navigate(`/shelf/${shelfId}/puzzle/${puzzle.id}`)}
+                      />
+                    ))}
+                    {completedPuzzles.length > 0 && (
+                      <>
+                        <div style={{
+                          fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
+                          letterSpacing: '0.08em', color: 'var(--color-text-muted)',
+                          padding: activePuzzles.length > 0 ? '8px 4px 0' : '0 4px',
+                        }}>
+                          Completed
+                        </div>
+                        {completedPuzzles.map(puzzle => (
+                          <PuzzleCard
+                            key={puzzle.id}
+                            puzzle={puzzle}
+                            shelf={shelf}
+                            userId={user!.uid}
+                            onClick={() => navigate(`/shelf/${shelfId}/puzzle/${puzzle.id}`)}
+                          />
+                        ))}
+                      </>
+                    )}
+                  </div>
+                )
+              })()
             )}
 
             {puzzles.length > 0 && (

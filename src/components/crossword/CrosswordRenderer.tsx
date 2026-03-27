@@ -25,8 +25,13 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
   const [showClueList, setShowClueList] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  const [showComplete, setShowComplete] = useState(false)
+  const [showWrong, setShowWrong] = useState(false)
   const cursorRef = useRef<string | null>(null)
   const directionRef = useRef<Direction>('across')
+  const checkTriggeredRef = useRef(false)
+  const checkInFlightRef = useRef(false)
+  const prevStatusRef = useRef(puzzle.status)
   const { dark, toggle: toggleTheme } = useTheme()
 
   const myColor = shelf.members[userId]?.color ?? '#888'
@@ -169,6 +174,8 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
   }, [selectedCell, puzzle.gridMeta])
 
   async function writeCell(cellKey: string, value: string) {
+    // Don't overwrite cells while auto-check is in flight (would clobber results)
+    if (checkInFlightRef.current) return
     await updateDoc(doc(db, 'shelves', shelfId, 'puzzles', puzzle.id), {
       [`cells.${cellKey}`]: {
         value: value.toUpperCase(),
@@ -312,6 +319,43 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
     }
   }, [shelfId, userId])
 
+  // Auto-check when all non-black cells are filled
+  useEffect(() => {
+    if (puzzle.status !== 'active') return
+    const nonBlackKeys = Object.entries(puzzle.gridMeta ?? {})
+      .filter(([, m]) => !m.isBlack)
+      .map(([k]) => k)
+    const allFilled = nonBlackKeys.length > 0 && nonBlackKeys.every(k => !!puzzle.cells[k]?.value)
+    if (!allFilled) {
+      checkTriggeredRef.current = false
+      setShowWrong(false)
+      return
+    }
+    if (checkTriggeredRef.current) return
+    checkTriggeredRef.current = true
+    checkInFlightRef.current = true
+    setActionLoading(true)
+    checkPuzzle({ shelfId, puzzleId: puzzle.id, scope: 'all' }).finally(() => {
+      checkInFlightRef.current = false
+      setActionLoading(false)
+    })
+  }, [puzzle.cells, puzzle.status, puzzle.gridMeta, shelfId, puzzle.id])
+
+  // Detect result: completion celebration or wrong banner
+  useEffect(() => {
+    if (puzzle.status === 'completed' && prevStatusRef.current !== 'completed') {
+      setShowComplete(true)
+    }
+    prevStatusRef.current = puzzle.status
+  }, [puzzle.status])
+
+  useEffect(() => {
+    if (!checkTriggeredRef.current) return
+    if (puzzle.status === 'completed') return
+    const hasIncorrect = Object.values(puzzle.cells).some(c => c.status === 'incorrect')
+    if (hasIncorrect) setShowWrong(true)
+  }, [puzzle.cells, puzzle.status])
+
   // Compute other members' active word cells for presence highlighting
   const memberPresence: Record<string, { wordCells: string[], color: string }> = {}
   for (const [id, member] of Object.entries(shelf.members)) {
@@ -406,6 +450,18 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
           )}
         </div>
       </div>
+
+      {/* Wrong answer banner */}
+      {showWrong && (
+        <div style={{
+          background: 'var(--color-incorrect)', color: 'white',
+          padding: '10px 16px', display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between', flexShrink: 0,
+        }}>
+          <span style={{ fontSize: 14, fontWeight: 600 }}>Some answers are wrong</span>
+          <button onClick={() => setShowWrong(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: 20, padding: '0 0 0 12px', lineHeight: 1 }}>×</button>
+        </div>
+      )}
 
       {/* Grid or Clue List */}
       {showClueList ? (
@@ -525,6 +581,25 @@ export function CrosswordRenderer({ puzzle, shelf, userId, shelfId }: Props) {
       {/* Custom keyboard — hidden when browsing clue list */}
       {!showClueList && (
         <CrosswordKeyboard onLetter={l => void handleLetterInput(l)} onDelete={() => void handleDelete()} />
+      )}
+
+      {/* Completion celebration */}
+      {showComplete && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ background: 'var(--color-surface)', borderRadius: 20, padding: '36px 28px', textAlign: 'center', maxWidth: 320, width: '100%' }}>
+            <div style={{ fontSize: 52, marginBottom: 12 }}>🎉</div>
+            <h2 style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 800 }}>Puzzle complete!</h2>
+            <p style={{ margin: '0 0 24px', color: 'var(--color-text-muted)', fontSize: 14, lineHeight: 1.5 }}>
+              You solved <strong style={{ color: 'var(--color-text)' }}>{puzzle.title}</strong>.
+            </p>
+            <button className="btn-primary" style={{ width: '100%', marginBottom: 10 }} onClick={() => window.history.back()}>
+              Back to shelf
+            </button>
+            <button className="btn-secondary" style={{ width: '100%' }} onClick={() => setShowComplete(false)}>
+              Keep viewing
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Chat slide-up */}
