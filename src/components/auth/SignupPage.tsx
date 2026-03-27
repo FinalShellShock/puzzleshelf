@@ -10,6 +10,7 @@ export function SignupPage() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [agreedToTos, setAgreedToTos] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -17,6 +18,7 @@ export function SignupPage() {
     e.preventDefault()
     if (name.trim().length < 2) { setError('Name must be at least 2 characters'); return }
     if (password.length < 6) { setError('Password must be at least 6 characters'); return }
+    if (!agreedToTos) { setError('You must agree to the Terms of Service to continue'); return }
     setError('')
     setLoading(true)
     try {
@@ -26,6 +28,7 @@ export function SignupPage() {
         displayName: name.trim(),
         email: email.toLowerCase(),
         createdAt: serverTimestamp(),
+        tosAcceptedAt: serverTimestamp(),
       })
       navigate('/')
     } catch (err: unknown) {
@@ -81,11 +84,26 @@ export function SignupPage() {
             />
           </div>
 
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', fontSize: 14, lineHeight: 1.5 }}>
+            <input
+              type="checkbox"
+              checked={agreedToTos}
+              onChange={e => setAgreedToTos(e.target.checked)}
+              style={{ marginTop: 3, accentColor: 'var(--color-accent)', width: 16, height: 16, flexShrink: 0, cursor: 'pointer' }}
+            />
+            <span>
+              I agree to the{' '}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-accent)', fontWeight: 600, textDecoration: 'none' }}>Terms of Service</a>
+              {' '}and{' '}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-accent)', fontWeight: 600, textDecoration: 'none' }}>Privacy Policy</a>
+            </span>
+          </label>
+
           {error && (
             <p style={{ margin: 0, color: 'var(--color-incorrect)', fontSize: 14 }}>{error}</p>
           )}
 
-          <button className="btn-primary" type="submit" disabled={loading} style={{ marginTop: 4 }}>
+          <button className="btn-primary" type="submit" disabled={loading || !agreedToTos} style={{ marginTop: 4 }}>
             {loading ? <Spinner size={18} /> : 'Create account'}
           </button>
         </form>
