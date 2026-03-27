@@ -36,7 +36,7 @@ export function PuzzleCard({ puzzle, shelf, userId: _userId, onClick }: PuzzleCa
     uid, color, name,
     count: cells.filter(c => c.filledBy === uid && c.value).length,
   }))
-  const revealedCount = cells.filter(c => c.filledBy === 'system' && c.value).length
+  const revealedCount = cells.filter(c => c.filledBy === 'system' && c.value && !c.given).length
 
   // Who's currently in this puzzle — require a fresh lastSeen to avoid stale presence
   const presentMembers = Object.entries(shelf.members).filter(([, m]) =>
