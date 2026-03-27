@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthGuard } from './components/auth/AuthGuard'
 import { LoginPage } from './components/auth/LoginPage'
 import { SignupPage } from './components/auth/SignupPage'
+import { ForgotPasswordPage } from './components/auth/ForgotPasswordPage'
 import { ShelfListPage } from './components/shelf/ShelfListPage'
 import { ShelfView } from './components/shelf/ShelfView'
 import { PuzzleView } from './components/library/PuzzleView'
@@ -23,6 +24,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/" element={<AuthGuard><ShelfListPage /></AuthGuard>} />
