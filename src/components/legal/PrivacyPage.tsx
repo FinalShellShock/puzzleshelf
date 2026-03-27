@@ -70,7 +70,7 @@ export function PrivacyPage() {
             <li>Request deletion of your account and associated data.</li>
             <li>Opt out of any non-essential communications.</li>
           </ul>
-          <p style={{ marginTop: 12 }}>To exercise these rights, contact us at: <a href="mailto:[YOUR EMAIL ADDRESS]" style={{ color: 'var(--color-accent)' }}>[YOUR EMAIL ADDRESS]</a></p>
+          <p style={{ marginTop: 12 }}>To exercise these rights, contact us at: <a href="mailto:johnnychadwick@gmail.com" style={{ color: 'var(--color-accent)' }}>johnnychadwick@gmail.com</a></p>
         </Section>
 
         <Section heading="7. Children's Privacy">
@@ -92,7 +92,7 @@ export function PrivacyPage() {
         </Section>
 
         <Section heading="10. Contact">
-          <p>For privacy-related questions or requests, contact: <a href="mailto:[YOUR EMAIL ADDRESS]" style={{ color: 'var(--color-accent)' }}>[YOUR EMAIL ADDRESS]</a></p>
+          <p>For privacy-related questions or requests, contact: <a href="mailto:johnnychadwick@gmail.com" style={{ color: 'var(--color-accent)' }}>johnnychadwick@gmail.com</a></p>
         </Section>
       </div>
     </div>

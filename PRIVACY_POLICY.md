@@ -56,7 +56,7 @@ You may:
 - Request deletion of your account and associated data.
 - Opt out of any non-essential communications.
 
-To exercise these rights, contact us at: [YOUR EMAIL ADDRESS]
+To exercise these rights, contact us at: johnnychadwick@gmail.com
 
 ## 7. Children's Privacy
 
@@ -78,4 +78,4 @@ We may update this Privacy Policy at any time. We will make reasonable efforts t
 
 ## 10. Contact
 
-For privacy-related questions or requests, contact: [YOUR EMAIL ADDRESS]
+For privacy-related questions or requests, contact: johnnychadwick@gmail.com

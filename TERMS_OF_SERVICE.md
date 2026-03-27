@@ -66,4 +66,4 @@ These Terms shall be governed by the laws of the Commonwealth of Pennsylvania, w
 
 ## 12. Contact
 
-For questions about these Terms, contact: [YOUR EMAIL ADDRESS]
+For questions about these Terms, contact: johnnychadwick@gmail.com

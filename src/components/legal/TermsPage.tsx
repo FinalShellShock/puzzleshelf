@@ -85,7 +85,7 @@ export function TermsPage() {
         </Section>
 
         <Section heading="12. Contact">
-          <p>For questions about these Terms, contact: <a href="mailto:[YOUR EMAIL ADDRESS]" style={{ color: 'var(--color-accent)' }}>[YOUR EMAIL ADDRESS]</a></p>
+          <p>For questions about these Terms, contact: <a href="mailto:johnnychadwick@gmail.com" style={{ color: 'var(--color-accent)' }}>johnnychadwick@gmail.com</a></p>
         </Section>
       </div>
     </div>
