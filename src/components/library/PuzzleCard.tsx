@@ -19,6 +19,14 @@ export function PuzzleCard({ puzzle, shelf, userId: _userId, onClick }: PuzzleCa
   const cells = Object.values(puzzle.cells ?? {})
   const totalFilled = cells.filter(c => c.value && !c.given).length
 
+  // Playable cells = non-black cells (crossword) or non-given cells (sudoku).
+  // Using gridWidth*gridHeight would include black squares and make 100% unreachable.
+  const playableCells = puzzle.gridMeta
+    ? Object.values(puzzle.gridMeta).filter(m => !m.isBlack).length
+    : puzzle.type === 'sudoku'
+    ? 81 - Object.keys(puzzle.constraints ?? {}).length
+    : puzzle.gridWidth * puzzle.gridHeight
+
   // Contribution bars — include former members so progress bar stays accurate
   const allContributors = [
     ...Object.entries(shelf.members).map(([uid, m]) => ({ uid, color: m.color, name: memberNames[uid] ?? m.displayName })),
@@ -28,7 +36,7 @@ export function PuzzleCard({ puzzle, shelf, userId: _userId, onClick }: PuzzleCa
     uid, color, name,
     count: cells.filter(c => c.filledBy === uid && c.value).length,
   }))
-  const totalCells = puzzle.gridWidth * puzzle.gridHeight
+  const revealedCount = cells.filter(c => c.filledBy === 'system' && c.value).length
 
   // Who's currently in this puzzle — require a fresh lastSeen to avoid stale presence
   const presentMembers = Object.entries(shelf.members).filter(([, m]) =>
@@ -150,12 +158,15 @@ export function PuzzleCard({ puzzle, shelf, userId: _userId, onClick }: PuzzleCa
       </div>
 
       {/* Progress bar */}
-      {totalCells > 0 && (
+      {playableCells > 0 && (
         <div style={{ marginTop: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
             <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Progress</span>
-            <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
-              {Math.round((totalFilled / totalCells) * 100)}%
+            <span style={{ fontSize: 11, color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+              {totalFilled >= playableCells && puzzle.status !== 'completed' && (
+                <span title="All filled but not yet correct" style={{ color: 'var(--color-incorrect)', fontSize: 12, lineHeight: 1 }}>⚠︎</span>
+              )}
+              {Math.round((totalFilled / playableCells) * 100)}%
             </span>
           </div>
           <div style={{
@@ -169,13 +180,25 @@ export function PuzzleCard({ puzzle, shelf, userId: _userId, onClick }: PuzzleCa
                   key={uid}
                   style={{
                     height: '100%',
-                    width: `${(count / totalCells) * 100}%`,
+                    width: `${(count / playableCells) * 100}%`,
                     background: color,
                     transition: 'width 300ms ease-out',
                   }}
                 />
               )
             ))}
+            {revealedCount > 0 && (
+              <div
+                title="Revealed"
+                style={{
+                  height: '100%',
+                  width: `${(revealedCount / playableCells) * 100}%`,
+                  background: 'repeating-linear-gradient(45deg, var(--color-text-muted) 0px, var(--color-text-muted) 2px, transparent 2px, transparent 6px)',
+                  opacity: 0.5,
+                  transition: 'width 300ms ease-out',
+                }}
+              />
+            )}
           </div>
         </div>
       )}
