@@ -55,12 +55,9 @@ export function CrosswordGrid({ puzzle, shelf, selectedCell, activeWordCells, me
           const isInWord = activeWordCells.includes(key)
           const status = cell?.status ?? 'unchecked'
           const filledBy = cell?.filledBy
-          const memberColor = filledBy && filledBy !== 'system'
+          const letterColor = filledBy && filledBy !== 'system'
             ? getMemberColor(shelf, filledBy)
             : 'var(--color-text-muted)'
-          // When cell is marked correct, override to high-contrast text
-          // so green user colors don't disappear into the green background
-          const letterColor = status === 'correct' ? 'var(--color-text)' : memberColor
 
           // Find any member whose active word includes this cell
           const presenceEntries = memberPresence
