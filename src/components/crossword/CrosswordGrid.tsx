@@ -16,6 +16,9 @@ export function CrosswordGrid({ puzzle, shelf, selectedCell, activeWordCells, me
   // Cell size: fill viewport width on mobile
   // Account for (cols-1) gaps of 1px and 2px outer border so grid never overflows viewport
   const cellSize = Math.min(Math.floor((window.innerWidth - cols - 1) / cols), 44)
+  // Dense grid (Sunday puzzles): shrink decorations so letters stay readable
+  const isDense = cellSize <= 24
+  const numberSize = isDense ? Math.max(cellSize * 0.35, 6) : 9
 
   return (
     <div
@@ -25,10 +28,11 @@ export function CrosswordGrid({ puzzle, shelf, selectedCell, activeWordCells, me
         gridTemplateRows: `repeat(${rows}, ${cellSize}px)`,
         gap: 1,
         background: 'var(--color-border)',
-        borderRadius: 8,
+        borderRadius: isDense ? 4 : 8,
         overflow: 'hidden',
         border: '1px solid var(--color-border)',
       }}
+      className={isDense ? 'grid-dense' : ''}
     >
       {Array.from({ length: rows }, (_, row) =>
         Array.from({ length: cols }, (_, col) => {
@@ -51,9 +55,12 @@ export function CrosswordGrid({ puzzle, shelf, selectedCell, activeWordCells, me
           const isInWord = activeWordCells.includes(key)
           const status = cell?.status ?? 'unchecked'
           const filledBy = cell?.filledBy
-          const letterColor = filledBy && filledBy !== 'system'
+          const memberColor = filledBy && filledBy !== 'system'
             ? getMemberColor(shelf, filledBy)
             : 'var(--color-text-muted)'
+          // When cell is marked correct, override to high-contrast text
+          // so green user colors don't disappear into the green background
+          const letterColor = status === 'correct' ? 'var(--color-text)' : memberColor
 
           // Find any member whose active word includes this cell
           const presenceEntries = memberPresence
@@ -80,14 +87,14 @@ export function CrosswordGrid({ puzzle, shelf, selectedCell, activeWordCells, me
               onClick={() => onCellSelect(key)}
             >
               {meta?.number && (
-                <span className="cell-number">{meta.number}</span>
+                <span className="cell-number" style={isDense ? { fontSize: numberSize, top: 1, left: 1 } : undefined}>{meta.number}</span>
               )}
               {cell?.value && (
                 <span
                   className="cell-letter"
                   style={{
                     color: status === 'revealed' ? 'var(--color-revealed)' : letterColor,
-                    fontSize: Math.max(cellSize * 0.45, 12),
+                    fontSize: Math.max(cellSize * 0.5, 12),
                   }}
                 >
                   {cell.value}
