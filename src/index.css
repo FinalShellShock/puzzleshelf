@@ -197,14 +197,12 @@ body {
   line-height: 1;
 }
 
-/* Dense grids (Sunday puzzles): strip decoration so letters fill the cell */
+/* Dense grids (Sunday puzzles): drop borders to reclaim space, keep radius */
 .grid-dense .puzzle-cell {
   border: none;
-  border-radius: 0;
 }
 .grid-dense .puzzle-cell.black {
   border: none;
-  border-radius: 0;
 }
 .grid-dense .cell-number {
   opacity: 0.55;

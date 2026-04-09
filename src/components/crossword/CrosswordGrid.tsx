@@ -28,7 +28,7 @@ export function CrosswordGrid({ puzzle, shelf, selectedCell, activeWordCells, me
         gridTemplateRows: `repeat(${rows}, ${cellSize}px)`,
         gap: 1,
         background: 'var(--color-border)',
-        borderRadius: isDense ? 4 : 8,
+        borderRadius: 8,
         overflow: 'hidden',
         border: '1px solid var(--color-border)',
       }}
